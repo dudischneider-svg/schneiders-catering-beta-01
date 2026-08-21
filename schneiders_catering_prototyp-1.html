@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schneiders Catering – Prototyp</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select{font:inherit} button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:#17191c;color:white;padding:22px 16px;position:sticky;top:0;height:100vh}
+.brand{font-size:21px;font-weight:800;margin-bottom:24px}.brand small{display:block;color:#aaa;font-size:12px;font-weight:500;margin-top:3px}
+nav button{display:block;width:100%;text-align:left;background:transparent;color:#ddd;padding:11px 12px;border-radius:10px;margin:3px 0}nav button:hover,nav button.active{background:#2a2d31;color:white}
+main{padding:28px;max-width:1280px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.top h1{margin:0;font-size:28px}.top p{margin:5px 0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 8px #00000006}.metric .label{font-size:13px;color:var(--muted)}.metric .num{font-size:27px;font-weight:800;margin-top:6px}
+h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--ok)}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent2);font-size:12px;font-weight:700}.muted{color:var(--muted)}.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.item:hover{border-color:#c7cbd1}.item strong{display:block}.actions{display:flex;gap:8px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}
+.kpi{background:#fafafa;border-radius:12px;padding:12px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
+.hidden{display:none!important}.toast{position:fixed;right:20px;bottom:20px;background:#17191c;color:white;padding:12px 16px;border-radius:10px;display:none}
+@media(max-width:850px){
+  *{max-width:100%}
+  body{overflow-x:hidden}
+  .app{display:block;min-height:100vh}
+  aside{height:auto;position:sticky;top:0;z-index:20;padding:10px;background:#17191c}
+  .brand{margin:0 0 8px;font-size:18px}
+  .brand small{font-size:11px}
+  nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+  nav button{width:100%;padding:9px 4px;margin:0;text-align:center;font-size:11px;white-space:normal;line-height:1.2}
+  main{padding:14px;width:100%;max-width:100vw;overflow:hidden}
+  .top{align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .top h1{font-size:22px}
+  .grid,.grid2,.formgrid{grid-template-columns:1fr}
+  .card{padding:14px;border-radius:13px}
+  .metric .num{font-size:24px}
+  .actions{width:100%}
+  .actions .btn{flex:1 1 auto;min-height:44px}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  .item{padding:12px}
+  input,select{min-height:44px}
+}
+@media(max-width:430px){
+  nav{grid-template-columns:repeat(4,minmax(0,1fr))}
+  nav button{font-size:10px}
+  .top .actions{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Prototyp</small></div>
+  <nav id="nav">
+    <button data-page="dashboard" class="active">🏠 Startseite</button>
+    <button data-page="orders">📋 Aufträge</button>
+    <button data-page="customers">👥 Kunden</button>
+    <button data-page="recipes">🍕 Rezepte</button>
+    <button data-page="calc">💰 Kalkulation</button>
+    <button data-page="timer">⏱️ Zeiterfassung</button>
+    <button data-page="shopping">🛒 Einkauf</button>
+    <button data-page="calendar">📅 Kalender</button>
+    <button data-page="docs">📄 Angebote & Rechnungen</button>
+    <button data-page="stats">📊 Auswertung</button>
+    <button data-page="settings">⚙️ Einstellungen</button>
+  </nav>
+</aside>
+<main id="main"></main>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+const state={timer:null,start:null,activeTask:null};
+const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
+const pages={};
+
+function shell(title,sub,body,actions=''){return `<div class="top"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>${body}`}
+function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+
+pages.dashboard=()=>shell('Guten Morgen 👋','Dein nächster Auftrag steht im Mittelpunkt.',
+`<div class="grid">
+<div class="card metric"><div class="label">Nächster Auftrag</div><div class="num">Samstag</div><div class="muted">18:00 · Müller GmbH</div></div>
+<div class="card metric"><div class="label">Personen / Pizzen</div><div class="num">60</div><div class="muted">Göttingen · 54 km</div></div>
+<div class="card metric"><div class="label">Verkaufspreis</div><div class="num">${money(1400)}</div><div class="muted">interne Vorkalkulation</div></div>
+<div class="card metric"><div class="label">Erwarteter Gewinn</div><div class="num">${money(480)}</div><div class="muted">nach kalkulierten Kosten</div></div>
+</div>
+<div class="grid2" style="margin-top:16px">
+<div class="card"><div class="row"><h2>Nächster Auftrag</h2><span class="pill">Bestätigt</span></div>
+<div class="item"><strong>Müller GmbH · Sommerfest</strong><span class="muted">Samstag, 12.09.2026 · 18:00 Uhr · Göttingen</span><div class="actions" style="margin-top:12px"><button class="btn" onclick="go('orders')">Auftrag öffnen</button><button class="btn secondary" onclick="toast('Termin zum Teilen vorbereitet')">📤 Teilen</button><button class="btn secondary" onclick="toast('Navigation geöffnet')">📍 Route</button></div></div>
+<h3 style="margin-top:22px">Vorbereitung</h3><div class="timeline"><div><div class="t">Donnerstag</div><span class="muted">Vorteig herstellen</span></div><div><div class="t">Freitag</div><span class="muted">Hauptteig · Portionieren</span></div><div><div class="t">Samstag</div><span class="muted">Einkauf · Beladen · Fahrt · Catering</span></div></div>
+</div>
+<div class="card"><h2>Offene Aufgaben</h2><div class="list">
+<div class="item">☐ Gasflaschen prüfen</div><div class="item">☐ Einkauf erledigen</div><div class="item">☐ Öfen einladen</div><div class="item">☐ Angebot/Anzahlung prüfen</div>
+</div><h3 style="margin-top:22px">Letzte Aufträge</h3><div class="list"><div class="item"><strong>Schmidt · 80 Pizzen</strong><span class="muted">1.750 € · Gewinn 570 €</span></div><div class="item"><strong>Weber · 40 Pizzen</strong><span class="muted">950 € · Gewinn 260 €</span></div></div></div></div>`);
+
+pages.orders=()=>shell('Aufträge','Anfragen, bestätigte Caterings und Nachkalkulation.',`<div class="card"><div class="row"><h2>Auftragsübersicht</h2><button class="btn" onclick="toast('Neuer Auftrag angelegt – Demo')">+ Neuer Auftrag</button></div><table><tr><th>Kunde</th><th>Termin</th><th>Personen</th><th>Preis</th><th>Status</th></tr>
+<tr onclick="go('orders')" style="cursor:pointer"><td><strong>Müller GmbH</strong><br><span class="muted">Sommerfest</span></td><td>12.09.2026 · 18:00</td><td>60</td><td>${money(1400)}</td><td><span class="pill">Bestätigt</span></td></tr>
+<tr><td><strong>Schmidt</strong></td><td>19.09.2026 · 17:30</td><td>80</td><td>${money(1750)}</td><td><span class="pill">Angebot</span></td></tr></table></div>
+<div class="card" style="margin-top:16px"><h2>Auftrag Müller GmbH</h2><div class="formgrid"><label>Kunde<input value="Müller GmbH"></label><label>Datum<input value="12.09.2026"></label><label>Personen<input value="60"></label><label>Verkaufspreis<input value="1400 €"></label><label>Veranstaltungsort<input value="Göttingen"></label><label>Pizza-Auswahl<input value="Margherita, Salami, Schinken, Pilze"></label></div><div class="actions" style="margin-top:15px"><button class="btn" onclick="go('calc')">Kalkulation</button><button class="btn secondary" onclick="go('timer')">Zeiterfassung</button><button class="btn secondary" onclick="go('shopping')">Einkauf</button></div></div>`);
+
+pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',`<div class="card"><div class="row"><h2>Kunden</h2><button class="btn" onclick="toast('Neuer Kunde – Demo')">+ Kunde</button></div><table><tr><th>Kunde</th><th>Ort</th><th>Telefon</th><th>Aufträge</th></tr><tr><td><strong>Müller GmbH</strong></td><td>Göttingen</td><td>0551 …</td><td>3</td></tr><tr><td><strong>Schmidt Familie</strong></td><td>Northeim</td><td>05551 …</td><td>1</td></tr></table></div><div class="card" style="margin-top:16px"><h2>Standardadresse</h2><div class="formgrid"><label>Straße<input value="Heimatadresse"></label><label>Ort<input value="Halberstadt"></label></div><p class="muted">Beim Auftrag kann die Veranstaltungsadresse geändert werden. Entfernung und Fahrzeit werden später automatisch über Routing berechnet.</p></div>`);
+
+pages.recipes=()=>shell('Rezepte','Teig, Pizza-Belag und Desserts getrennt kalkulieren – anschließend beliebig kombinieren.',`
+<div class="grid2">
+<div class="card"><div class="row"><h2>🥣 Teigrezepte</h2><button class="btn" onclick="toast('Neuer Teig – Demo')">+ Teig</button></div>
+<div class="list">
+<div class="item"><strong>Italienischer Pizzateig 1</strong><span class="muted">Standardteig · Portion: 300 g</span><br><span>Mehl · Wasser · Hefe · Salz · Öl</span><br><b>Teigkosten: ${money(.38)} / 300 g</b></div>
+<div class="item"><strong>Italienischer Pizzateig 2</strong><span class="muted">Alternative Führung · Portion: 280 g</span><br><span>Mehl · Wasser · Hefe · Salz · Öl</span><br><b>Teigkosten: ${money(.35)} / Portion</b></div>
+</div></div>
+<div class="card"><div class="row"><h2>🧀 Pizza-/Belagrezepte</h2><button class="btn" onclick="toast('Neues Belagrezept – Demo')">+ Rezept</button></div>
+<div class="list">
+<div class="item"><strong>🍕 Salami</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Tomatensauce 80 g · Fior di Latte 90 g · Salami 25 g · Parmesan 5 g<br><b>${money(2.29)} / Pizza</b></div>
+<div class="item"><strong>🍕 Margherita</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Tomatensauce 80 g · Fior di Latte 90 g · Basilikum · Parmesan<br><b>${money(1.80)} / Pizza</b></div>
+<div class="item"><strong>🍫 Nutella-Pizza</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Nutella 100 g · Erdbeeren 40 g · Pudding 50 g<br><b>${money(2.46)} / Pizza</b></div>
+</div></div>
+</div>
+<div class="card" style="margin-top:16px"><h2>So funktioniert die Kalkulation</h2>
+<div class="grid">
+<div class="kpi"><span class="muted">1. Teig wählen</span><br><b>Italienischer Pizzateig 1</b><br>300 g</div>
+<div class="kpi"><span class="muted">2. Belag wählen</span><br><b>Salami</b><br>30 Pizzen</div>
+<div class="kpi"><span class="muted">3. Hochrechnen</span><br><b>30 × Rezept</b><br>Teig + Belag</div>
+<div class="kpi"><span class="muted">4. Einkauf</span><br><b>Packungen</b><br>aufgerundet auf tatsächlichen Einkauf</div>
+</div>
+<p class="muted" style="margin-bottom:0">Bei einem Auftrag kannst du später die Teigmenge pro Pizza ändern. Die Beläge werden automatisch mit der gewählten Teigvariante und Grammzahl kombiniert.</p>
+</div>`);
+
+pages.calc=()=>shell('Kalkulation','Vorkalkulation und frei wählbarer Verkaufspreis.',`<div class="grid"><div class="card metric"><div class="label">Warenkosten</div><div class="num">${money(285)}</div></div><div class="card metric"><div class="label">Arbeitskosten</div><div class="num">${money(300)}</div></div><div class="card metric"><div class="label">Fahrzeug</div><div class="num">${money(95)}</div></div><div class="card metric"><div class="label">Sonstiges/Reserve</div><div class="num">${money(40)}</div></div></div>
+<div class="grid2" style="margin-top:16px"><div class="card"><h2>Preisfinder</h2><div class="formgrid"><label>Pizzen<input id="cp" value="60" type="number"></label><label>Gewünschter Unternehmergewinn<input id="cg" value="400" type="number"></label><label>Geplanter Verkaufspreis<input id="cs" value="1400" type="number"></label><label>Arbeitszeit<input value="10 Std." disabled></label></div><div class="grid" style="margin-top:16px"><div class="kpi"><span class="muted">Kosten</span><br><span class="money">${money(720)}</span></div><div class="kpi"><span class="muted">Mindestpreis</span><br><span class="money">${money(1120)}</span></div><div class="kpi"><span class="muted">Gewinn</span><br><span class="money">${money(680)}</span></div><div class="kpi"><span class="muted">Gewinn/Pizza</span><br><span class="money">${money(11.33)}</span></div></div></div><div class="card"><h2>Preisspanne</h2><table><tr><th>Preis</th><th>Gewinn</th><th>€/Pizza</th></tr><tr><td>1.200 €</td><td>480 €</td><td>8,00 €</td></tr><tr><td><b>1.400 €</b></td><td><b>680 €</b></td><td><b>11,33 €</b></td></tr><tr><td>1.500 €</td><td>780 €</td><td>13,00 €</td></tr></table></div></div>`);
+
+const tasks=['Vorteig herstellen','Hauptteig kneten','Teig portionieren','Einkauf','Fahrt zum Einkauf','Auto beladen','Fahrt zum Kunden','Aufbau','Catering / Pizza backen','Abbau','Heimfahrt','Auto ausräumen','Reinigung','Sonstiges'];
+pages.timer=()=>shell('Zeiterfassung','Jede Tätigkeit einzeln starten und stoppen; Fahrten können später GPS + Kilometer erfassen.',`<div class="grid2"><div class="card"><h2>Neue Tätigkeit</h2><select id="task"><option>${tasks.join('</option><option>')}</option></select><div class="actions" style="margin-top:12px"><button class="btn ok" onclick="startTimer()">▶ Start</button><button class="btn secondary" onclick="stopTimer()">■ Stopp</button></div><div class="metric-card" style="margin-top:16px"><div class="label muted">Aktuelle Zeit</div><div class="num" id="clock">00:00:00</div></div><p id="timerMsg" class="muted">Noch keine Tätigkeit aktiv.</p></div><div class="card"><h2>Heutige Zeiten</h2><table><tr><th>Tätigkeit</th><th>Plan</th><th>Ist</th></tr><tr><td>Vorteig</td><td>20 Min.</td><td>18 Min.</td></tr><tr><td>Auto beladen</td><td>60 Min.</td><td>47 Min.</td></tr><tr><td>Fahrt zum Kunden</td><td>43 Min.</td><td>51 Min.</td></tr><tr><td>Catering</td><td>3:30 Std.</td><td>—</td></tr></table><div class="kpi" style="margin-top:14px"><span class="muted">Gesamt bisher</span><br><b>1 Std. 56 Min.</b></div></div></div>`);
+
+pages.shopping=()=>shell('Einkauf','Geplante Mengen abhaken und tatsächliche Preise erfassen.',`<div class="card"><div class="row"><h2>Müller · 60 Pizzen</h2><span class="pill">7/10 erledigt</span></div><table><tr><th></th><th>Rohstoff</th><th>Menge</th><th>Geplant</th><th>Tatsächlich</th></tr>${[['Fior di Latte','3 Pack.','28,50 €','29,97 €'],['Salami','5 Pack.','44,50 €','49,95 €'],['Tomaten','2 Dosen','6,40 €','6,58 €'],['Parmesan','1 Pack.','8,50 €','8,50 €'],['Rucola','2 Pack.','5,00 €','4,98 €']].map(x=>`<tr><td>☐</td><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join('')}</table><div class="actions" style="margin-top:15px"><button class="btn" onclick="toast('Kassenbon-Kamera wäre hier eingebunden')">📷 Bon fotografieren</button><button class="btn secondary" onclick="toast('Einkauf abgeschlossen')">Einkauf abschließen</button></div></div>`);
+
+pages.calendar=()=>shell('Kalender','Alle Caterings und Vorbereitungsschritte auf einen Blick.',`<div class="card"><h2>September 2026</h2><div class="list"><div class="item"><strong>12.09. · 18:00 – Müller GmbH</strong><span class="muted">60 Personen · Göttingen · bestätigt</span><div class="actions"><button class="btn secondary" onclick="toast('Termin geteilt')">📤 Teilen</button><button class="btn secondary" onclick="toast('Route geöffnet')">📍 Route</button></div></div><div class="item"><strong>19.09. · 17:30 – Schmidt</strong><span class="muted">80 Personen · Northeim · Angebot</span></div></div></div>`);
+
+pages.docs=()=>shell('Angebote & Rechnungen','Aus Aufträgen erzeugte Kundendokumente – intern mit Vorschau.',`<div class="grid2"><div class="card"><h2>Dokument erstellen</h2><div class="formgrid"><label>Dokumenttyp<select><option>Angebot</option><option>Anzahlungsrechnung</option><option>Schlussrechnung</option></select></label><label>Nummer<input value="2026-0042"></label><label>Auftrag<input value="Müller GmbH – 60 Pizzen"></label><label>Zahlungsziel<input value="14 Tage"></label></div><div class="actions" style="margin-top:14px"><button class="btn" onclick="toast('PDF-Vorschau erstellt')">📄 PDF-Vorschau</button><button class="btn secondary" onclick="toast('Druckdialog geöffnet')">🖨️ Drucken</button></div></div><div class="card"><h2>Logo & Firmendaten</h2><div class="item"><strong>Schneiders Catering</strong><span class="muted">Logo: Platzhalter · später hochladen</span><br><span class="muted">Website: baeckerei-schneider.de</span></div></div></div>`);
+
+pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennzahlen.',`<div class="grid"><div class="card metric"><div class="label">Caterings 2026</div><div class="num">24</div></div><div class="card metric"><div class="label">Umsatz</div><div class="num">31.500 €</div></div><div class="card metric"><div class="label">Unternehmergewinn</div><div class="num">12.800 €</div></div><div class="card metric"><div class="label">Gewinn/Std.</div><div class="num">42,70 €</div></div></div><div class="card" style="margin-top:16px"><h2>Beispielauswertung</h2><table><tr><th>Zeitraum</th><th>Aufträge</th><th>Umsatz</th><th>Kosten</th><th>Gewinn</th></tr><tr><td>August</td><td>8</td><td>10.200 €</td><td>6.100 €</td><td>4.100 €</td></tr><tr><td>September</td><td>6</td><td>8.400 €</td><td>5.100 €</td><td>3.300 €</td></tr></table></div>`);
+
+pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Benachrichtigungen und Synchronisierung.',`<div class="grid2"><div class="card"><h2>Firma</h2><div class="formgrid"><label>Firmenname<input value="Schneiders Catering"></label><label>Website<input value="https://www.baeckerei-schneider.de"></label><label>Logo<input type="file"></label><label>Heimatadresse<input value="wird hinterlegt"></label></div></div><div class="card"><h2>Benutzer</h2><div class="list"><div class="item"><strong>Du · Administrator</strong><span class="muted">Vollzugriff</span></div><div class="item"><strong>Ehefrau · Familienzugang</strong><span class="muted">Kalender & Aufträge</span></div><div class="item"><strong>Helfer · Mitarbeiter</strong><span class="muted">zugewiesene Aufgaben</span></div></div></div><div class="card"><h2>Fahrzeuge</h2><div class="item"><strong>T6</strong><span class="muted">Verbrauch, Spritpreis und Vollkosten/km werden später hinterlegt.</span></div><button class="btn secondary" style="margin-top:12px" onclick="toast('Fahrzeug hinzugefügt – Demo')">+ Fahrzeug</button></div><div class="card"><h2>Synchronisierung & Handy</h2><p class="muted">Die echte Version wird als responsive, installierbare Web-App aufgebaut: gleiche Daten auf PC und Handy, Offline-Modus und automatische Cloud-Synchronisierung.</p><div class="actions"><span class="pill">Mobile-first</span><span class="pill">Offline</span><span class="pill">Installierbar</span></div></div></div>`);
+
+function render(page){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('main').innerHTML=pages[page]();window.scrollTo(0,0)}
+function go(p){render(p)}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
+function startTimer(){state.activeTask=document.getElementById('task').value;state.start=Date.now();clearInterval(state.timer);state.timer=setInterval(()=>{const s=Math.floor((Date.now()-state.start)/1000);document.getElementById('clock').textContent=new Date(s*1000).toISOString().substr(11,8)},1000);document.getElementById('timerMsg').textContent='Läuft: '+state.activeTask}
+function stopTimer(){if(!state.start){toast('Noch keine Tätigkeit gestartet');return}clearInterval(state.timer);const ms=Date.now()-state.start;document.getElementById('timerMsg').textContent=state.activeTask+' beendet: '+Math.round(ms/60000)+' Minuten';state.start=null}
+render('dashboard');
+</script>
+</body>
+</html>
