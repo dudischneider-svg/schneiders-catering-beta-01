@@ -72,7 +72,9 @@ const state={timer:null,start:null,activeTask:null};
 const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
 const pages={};
 
-function shell(title,sub,body,actions=''){return `<div class="top"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>${body||''}
+function shell(title,sub,body,actions=''){
+  return `<div class="top"><div><h1>${title}</h1><p>${sub||''}</p></div><div class="actions">${actions||''}</div></div>${body||''}`;
+}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
 
 pages.dashboard=()=>shell('Guten Morgen 👋','Dein nächster Auftrag steht im Mittelpunkt.',
@@ -90,11 +92,6 @@ pages.dashboard=()=>shell('Guten Morgen 👋','Dein nächster Auftrag steht im M
 <div class="card"><h2>Offene Aufgaben</h2><div class="list">
 <div class="item">☐ Gasflaschen prüfen</div><div class="item">☐ Einkauf erledigen</div><div class="item">☐ Öfen einladen</div><div class="item">☐ Angebot/Anzahlung prüfen</div>
 </div><h3 style="margin-top:22px">Letzte Aufträge</h3><div class="list"><div class="item"><strong>Schmidt · 80 Pizzen</strong><span class="muted">1.750 € · Gewinn 570 €</span></div><div class="item"><strong>Weber · 40 Pizzen</strong><span class="muted">950 € · Gewinn 260 €</span></div></div></div></div>`);
-
-pages.orders=()=>shell('Aufträge','Anfragen, bestätigte Caterings und Nachkalkulation.',`<div class="card"><div class="row"><h2>Auftragsübersicht</h2><button class="btn" onclick="toast('Neuer Auftrag angelegt – Demo')">+ Neuer Auftrag</button></div><table><tr><th>Kunde</th><th>Termin</th><th>Personen</th><th>Preis</th><th>Status</th></tr>
-<tr onclick="go('orders')" style="cursor:pointer"><td><strong>Müller GmbH</strong><br><span class="muted">Sommerfest</span></td><td>12.09.2026 · 18:00</td><td>60</td><td>${money(1400)}</td><td><span class="pill">Bestätigt</span></td></tr>
-<tr><td><strong>Schmidt</strong></td><td>19.09.2026 · 17:30</td><td>80</td><td>${money(1750)}</td><td><span class="pill">Angebot</span></td></tr></table></div>
-<div class="card" style="margin-top:16px"><h2>Auftrag Müller GmbH</h2><div class="formgrid"><label>Kunde<input value="Müller GmbH"></label><label>Datum<input value="12.09.2026"></label><label>Personen<input value="60"></label><label>Verkaufspreis<input value="1400 €"></label><label>Veranstaltungsort<input value="Göttingen"></label><label>Pizza-Auswahl<input value="Margherita, Salami, Schinken, Pilze"></label></div><div class="actions" style="margin-top:15px"><button class="btn" onclick="go('calc')">Kalkulation</button><button class="btn secondary" onclick="go('timer')">Zeiterfassung</button><button class="btn secondary" onclick="go('shopping')">Einkauf</button></div></div>`);
 
 pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',`<div class="card"><div class="row"><h2>Kunden</h2><button class="btn" onclick="toast('Neuer Kunde – Demo')">+ Kunde</button></div><table><tr><th>Kunde</th><th>Ort</th><th>Telefon</th><th>Aufträge</th></tr><tr><td><strong>Müller GmbH</strong></td><td>Göttingen</td><td>0551 …</td><td>3</td></tr><tr><td><strong>Schmidt Familie</strong></td><td>Northeim</td><td>05551 …</td><td>1</td></tr></table></div><div class="card" style="margin-top:16px"><h2>Standardadresse</h2><div class="formgrid"><label>Straße<input value="Heimatadresse"></label><label>Ort<input value="Halberstadt"></label></div><p class="muted">Beim Auftrag kann die Veranstaltungsadresse geändert werden. Entfernung und Fahrzeit werden später automatisch über Routing berechnet.</p></div>`);
 
@@ -122,7 +119,7 @@ pages.recipes=()=>shell('Rezepte','Teig, Pizza-Belag und Desserts getrennt kalku
 <p class="muted" style="margin-bottom:0">Bei einem Auftrag kannst du später die Teigmenge pro Pizza ändern. Die Beläge werden automatisch mit der gewählten Teigvariante und Grammzahl kombiniert.</p>
 </div>`);
 
-pages.orders=()=>shell('Aufträge',`
+pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und verwalten.',`
 <div class="card">
   <h2>Aufträge</h2>
   <p class="muted">Hier werden deine Catering-Aufträge verwaltet.</p>
@@ -156,12 +153,12 @@ pages.orders=()=>shell('Aufträge',`
       </label>
     </div>
 
-    <button onclick="saveOrder()">Auftrag speichern</button>
+    <button class="btn" onclick="saveOrder()">Auftrag speichern</button>
   </div>
 
   <div class="card">
     <h3>Aufträge</h3>
-    <div id="orderList" class="muted">${(()=>{const orders=JSON.parse(localStorage.getItem('orders')||'[]');if(!orders.length)return 'Noch keine Aufträge angelegt.';return orders.map(o=>'<div class="item"><strong>'+o.customer+'</strong><br>'+o.date+' · '+o.time+' · '+o.people+' Personen · '+o.location+' · '+o.price+' €</div>').join('')})()}</div>
+    <div id="orderList" class="muted">${(()=>{const orders=JSON.parse(localStorage.getItem('orders')||'[]');if(!orders.length)return 'Noch keine Aufträge angelegt.';return orders.map(o=>'<div class="item"><strong>'+(o.customer||'Ohne Namen')+'</strong><br>'+(o.date||'')+' · '+(o.time||'')+' · '+(o.people||'')+' Personen · '+(o.location||'')+' · '+(o.price||'')+' €</div>').join('')})()}</div>
   </div>
 </div>
 `);
@@ -185,7 +182,7 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
 
 
 
- function saveOrder(){
+function saveOrder(){
   const customer=document.querySelector('#orderCustomer').value.trim();
   const date=document.querySelector('#orderDate').value;
   const time=document.querySelector('#orderTime').value;
@@ -214,7 +211,7 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
   toast('Auftrag gespeichert.');
   render('orders');
  }
- function render(page){
+function render(page){
   document.querySelectorAll('#nav button').forEach(b=>{
     b.classList.toggle('active',b.dataset.page===page);
   });
