@@ -214,7 +214,13 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
   toast('Auftrag gespeichert.');
   render('orders');
  }
- function render(page){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('main').innerHTML=pages[page]();window.scrollTo(0,0)}
+ function render(page){
+  document.querySelectorAll('#nav button').forEach(b=>{
+    b.classList.toggle('active',b.dataset.page===page);
+  });
+  document.getElementById('main').innerHTML=pages[page]();
+  window.scrollTo(0,0);
+ }
 function go(p){render(p)}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
 function startTimer(){state.activeTask=document.getElementById('task').value;state.start=Date.now();clearInterval(state.timer);state.timer=setInterval(()=>{const s=Math.floor((Date.now()-state.start)/1000);document.getElementById('clock').textContent=new Date(s*1000).toISOString().substr(11,8)},1000);document.getElementById('timerMsg').textContent='Läuft: '+state.activeTask}
