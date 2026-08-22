@@ -98,29 +98,17 @@ pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',
 </div>
 `);
 
-pages.recipes=()=>shell('Rezepte','Teig, Pizza-Belag und Desserts getrennt kalkulieren – anschließend beliebig kombinieren.',`
-<div class="grid2">
-<div class="card"><div class="row"><h2>🥣 Teigrezepte</h2><button class="btn" onclick="toast('Neuer Teig – Demo')">+ Teig</button></div>
-<div class="list">
-<div class="item"><strong>Italienischer Pizzateig 1</strong><span class="muted">Standardteig · Portion: 300 g</span><br><span>Mehl · Wasser · Hefe · Salz · Öl</span><br><b>Teigkosten: ${money(.38)} / 300 g</b></div>
-<div class="item"><strong>Italienischer Pizzateig 2</strong><span class="muted">Alternative Führung · Portion: 280 g</span><br><span>Mehl · Wasser · Hefe · Salz · Öl</span><br><b>Teigkosten: ${money(.35)} / Portion</b></div>
-</div></div>
-<div class="card"><div class="row"><h2>🧀 Pizza-/Belagrezepte</h2><button class="btn" onclick="toast('Neues Belagrezept – Demo')">+ Rezept</button></div>
-<div class="list">
-<div class="item"><strong>🍕 Salami</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Tomatensauce 80 g · Fior di Latte 90 g · Salami 25 g · Parmesan 5 g<br><b>${money(2.29)} / Pizza</b></div>
-<div class="item"><strong>🍕 Margherita</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Tomatensauce 80 g · Fior di Latte 90 g · Basilikum · Parmesan<br><b>${money(1.80)} / Pizza</b></div>
-<div class="item"><strong>🍫 Nutella-Pizza</strong><span class="muted">Teig: Italienischer Pizzateig 1 · 300 g</span><br>Nutella 100 g · Erdbeeren 40 g · Pudding 50 g<br><b>${money(2.46)} / Pizza</b></div>
-</div></div>
+pages.recipes=()=>shell('Rezepte','Eigene Pizza-Rezepte anlegen, bearbeiten und löschen.',`
+<div class="card">
+  <div class="row">
+    <h2>Rezepte</h2>
+    <button class="btn" onclick="showNewRecipe()">+ Rezept</button>
+  </div>
+
+  <div id="recipeFormWrap"></div>
+  <div id="recipeList" style="margin-top:14px">${renderRecipeList()}</div>
 </div>
-<div class="card" style="margin-top:16px"><h2>So funktioniert die Kalkulation</h2>
-<div class="grid">
-<div class="kpi"><span class="muted">1. Teig wählen</span><br><b>Italienischer Pizzateig 1</b><br>300 g</div>
-<div class="kpi"><span class="muted">2. Belag wählen</span><br><b>Salami</b><br>30 Pizzen</div>
-<div class="kpi"><span class="muted">3. Hochrechnen</span><br><b>30 × Rezept</b><br>Teig + Belag</div>
-<div class="kpi"><span class="muted">4. Einkauf</span><br><b>Packungen</b><br>aufgerundet auf tatsächlichen Einkauf</div>
-</div>
-<p class="muted" style="margin-bottom:0">Bei einem Auftrag kannst du später die Teigmenge pro Pizza ändern. Die Beläge werden automatisch mit der gewählten Teigvariante und Grammzahl kombiniert.</p>
-</div>`);
+`);
 
 pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und verwalten.',`
 <div class="card">
@@ -257,6 +245,207 @@ pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennz
 pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Benachrichtigungen und Synchronisierung.',`<div class="grid2"><div class="card"><h2>Firma</h2><div class="formgrid"><label>Firmenname<input value="Schneiders Catering"></label><label>Website<input value="https://www.baeckerei-schneider.de"></label><label>Logo<input type="file"></label><label>Heimatadresse<input value="wird hinterlegt"></label></div></div><div class="card"><h2>Benutzer</h2><div class="list"><div class="item"><strong>Du · Administrator</strong><span class="muted">Vollzugriff</span></div><div class="item"><strong>Ehefrau · Familienzugang</strong><span class="muted">Kalender & Aufträge</span></div><div class="item"><strong>Helfer · Mitarbeiter</strong><span class="muted">zugewiesene Aufgaben</span></div></div></div><div class="card"><h2>Fahrzeuge</h2><div class="item"><strong>T6</strong><span class="muted">Verbrauch, Spritpreis und Vollkosten/km werden später hinterlegt.</span></div><button class="btn secondary" style="margin-top:12px" onclick="toast('Fahrzeug hinzugefügt – Demo')">+ Fahrzeug</button></div><div class="card"><h2>Synchronisierung & Handy</h2><p class="muted">Die echte Version wird als responsive, installierbare Web-App aufgebaut: gleiche Daten auf PC und Handy, Offline-Modus und automatische Cloud-Synchronisierung.</p><div class="actions"><span class="pill">Mobile-first</span><span class="pill">Offline</span><span class="pill">Installierbar</span></div></div></div>`);
 
 
+
+function getRecipes(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('recipes')||'null');
+    if(Array.isArray(saved)) return saved;
+  }catch(e){}
+
+  const defaults=[
+    {
+      name:'Margherita',
+      dough:300,
+      sauce:80,
+      cheese:90,
+      toppingName:'Parmesan',
+      topping:5,
+      extraName:'',
+      extra:0,
+      cost:1.80,
+      notes:'Standard'
+    },
+    {
+      name:'Salami',
+      dough:300,
+      sauce:80,
+      cheese:90,
+      toppingName:'Salami',
+      topping:25,
+      extraName:'Parmesan',
+      extra:5,
+      cost:2.29,
+      notes:'Standard'
+    },
+    {
+      name:'Nutella-Pizza',
+      dough:300,
+      sauce:0,
+      cheese:0,
+      toppingName:'Nutella',
+      topping:100,
+      extraName:'Erdbeeren',
+      extra:40,
+      cost:2.46,
+      notes:'Dessert'
+    }
+  ];
+
+  localStorage.setItem('recipes',JSON.stringify(defaults));
+  return defaults;
+}
+
+function saveRecipes(recipes){
+  localStorage.setItem('recipes',JSON.stringify(recipes));
+}
+
+function renderRecipeList(){
+  const recipes=getRecipes();
+  if(!recipes.length) return '<p class="muted">Noch keine Rezepte angelegt.</p>';
+
+  return `<div class="list">${recipes.map((r,index)=>`
+    <div class="item order-item" onclick="openRecipe(${index})">
+      <div class="row">
+        <strong>🍕 ${escapeHtml(r.name||'Ohne Namen')}</strong>
+        <span class="pill">${money(Number(r.cost||0))} / Pizza</span>
+      </div>
+      <div class="muted">Teig ${Number(r.dough||0)} g · Sauce ${Number(r.sauce||0)} g · Käse ${Number(r.cheese||0)} g</div>
+      <div class="muted">${r.toppingName?`${escapeHtml(r.toppingName)} ${Number(r.topping||0)} g`:''}${r.extraName?` · ${escapeHtml(r.extraName)} ${Number(r.extra||0)} g`:''}</div>
+      <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function recipeFormHtml(r={},index=null){
+  const isEdit=index!==null;
+  return `
+    <div class="card" style="margin-top:14px">
+      <h3>${isEdit?'Rezept bearbeiten':'Neues Rezept anlegen'}</h3>
+
+      <div class="formgrid">
+        <label>Rezeptname
+          <input id="recipeName" value="${escapeHtml(r.name||'')}" placeholder="z. B. Prosciutto">
+        </label>
+
+        <label>Kosten pro Pizza €
+          <input id="recipeCost" type="number" step="0.01" value="${Number(r.cost||0)}">
+        </label>
+
+        <label>Teig g
+          <input id="recipeDough" type="number" min="0" value="${Number(r.dough||300)}">
+        </label>
+
+        <label>Tomatensauce g
+          <input id="recipeSauce" type="number" min="0" value="${Number(r.sauce||0)}">
+        </label>
+
+        <label>Käse g
+          <input id="recipeCheese" type="number" min="0" value="${Number(r.cheese||0)}">
+        </label>
+
+        <label>Belag 1 Name
+          <input id="recipeToppingName" value="${escapeHtml(r.toppingName||'')}">
+        </label>
+
+        <label>Belag 1 g
+          <input id="recipeTopping" type="number" min="0" value="${Number(r.topping||0)}">
+        </label>
+
+        <label>Belag 2 Name
+          <input id="recipeExtraName" value="${escapeHtml(r.extraName||'')}">
+        </label>
+
+        <label>Belag 2 g
+          <input id="recipeExtra" type="number" min="0" value="${Number(r.extra||0)}">
+        </label>
+      </div>
+
+      <label style="margin-top:12px">Notizen
+        <textarea id="recipeNotes">${escapeHtml(r.notes||'')}</textarea>
+      </label>
+
+      <div class="actions" style="margin-top:14px">
+        <button class="btn ok" onclick="${isEdit?`updateRecipe(${index})`:'saveRecipe()'}">${isEdit?'Änderungen speichern':'Rezept speichern'}</button>
+        <button class="btn secondary" onclick="closeRecipeForm()">Schließen</button>
+        ${isEdit?`<button class="btn secondary" onclick="deleteRecipe(${index})">Rezept löschen</button>`:''}
+      </div>
+    </div>`;
+}
+
+function showNewRecipe(){
+  const wrap=document.getElementById('recipeFormWrap');
+  if(!wrap) return;
+  wrap.innerHTML=recipeFormHtml();
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function openRecipe(index){
+  const recipes=getRecipes();
+  const r=recipes[index];
+  if(!r) return;
+  const wrap=document.getElementById('recipeFormWrap');
+  if(!wrap) return;
+  wrap.innerHTML=recipeFormHtml(r,index);
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function readRecipeForm(){
+  return {
+    name:document.getElementById('recipeName').value.trim(),
+    cost:Number(document.getElementById('recipeCost').value||0),
+    dough:Number(document.getElementById('recipeDough').value||0),
+    sauce:Number(document.getElementById('recipeSauce').value||0),
+    cheese:Number(document.getElementById('recipeCheese').value||0),
+    toppingName:document.getElementById('recipeToppingName').value.trim(),
+    topping:Number(document.getElementById('recipeTopping').value||0),
+    extraName:document.getElementById('recipeExtraName').value.trim(),
+    extra:Number(document.getElementById('recipeExtra').value||0),
+    notes:document.getElementById('recipeNotes').value.trim()
+  };
+}
+
+function saveRecipe(){
+  const r=readRecipeForm();
+  if(!r.name){
+    toast('Bitte einen Rezeptnamen eingeben.');
+    return;
+  }
+  const recipes=getRecipes();
+  recipes.push(r);
+  saveRecipes(recipes);
+  toast('Rezept gespeichert.');
+  render('recipes');
+}
+
+function updateRecipe(index){
+  const r=readRecipeForm();
+  if(!r.name){
+    toast('Bitte einen Rezeptnamen eingeben.');
+    return;
+  }
+  const recipes=getRecipes();
+  if(!recipes[index]) return;
+  recipes[index]=r;
+  saveRecipes(recipes);
+  toast('Rezept aktualisiert.');
+  render('recipes');
+}
+
+function deleteRecipe(index){
+  const recipes=getRecipes();
+  const r=recipes[index];
+  if(!r) return;
+  if(!confirm(`Rezept "${r.name||'Ohne Namen'}" wirklich löschen?`)) return;
+  recipes.splice(index,1);
+  saveRecipes(recipes);
+  toast('Rezept gelöscht.');
+  render('recipes');
+}
+
+function closeRecipeForm(){
+  const wrap=document.getElementById('recipeFormWrap');
+  if(wrap) wrap.innerHTML='';
+}
 
 function renderCustomerOptions(){
   const customers=getCustomers();
