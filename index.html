@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 2.2 Secure Cloud</title>
+<title>Schneiders Catering – Version 2.2.1 Secure Cloud</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -157,6 +157,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
       <img id="mfaQr" class="mfa-qr" alt="QR-Code für Authenticator">
       <div class="muted">Falls Scannen nicht geht, Secret manuell eingeben:</div>
       <div id="mfaSecret" class="security-box" style="overflow-wrap:anywhere"></div>
+      <button class="btn secondary" style="width:100%;margin-top:8px" onclick="copyMfaSecret()">Einrichtungsschlüssel kopieren</button>
       <input id="mfaEnrollCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
       <button class="btn ok" style="width:100%;margin-top:12px" onclick="verifyMfaEnrollment()">2-Faktor aktivieren</button>
       <button class="btn secondary" style="width:100%;margin-top:8px" onclick="logoutFromApp()">Abbrechen</button>
@@ -167,7 +168,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.2 Secure Cloud</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.2.1 Secure Cloud</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -240,11 +241,24 @@ function setAuthStep(step){
 
 function normalizeQrSource(qr){
   if(!qr) return '';
-  if(qr.startsWith('data:')) return qr;
-  if(qr.trim().startsWith('<svg')){
-    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr);
+  const value=String(qr).trim();
+  if(value.startsWith('data:')) return value;
+  if(value.startsWith('<svg')){
+    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(value);
   }
-  return qr;
+  if(value.startsWith('http://') || value.startsWith('https://')) return value;
+  return '';
+}
+
+function qrFromTotpData(totp={}){
+  const direct=normalizeQrSource(totp.qr_code||totp.qrCode||'');
+  if(direct) return direct;
+
+  const uri=totp.uri||totp.otpauth_url||totp.otpauthUrl||'';
+  if(uri){
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(uri);
+  }
+  return '';
 }
 
 async function getVerifiedTotpFactor(){
@@ -384,8 +398,45 @@ async function beginMfaEnrollment(){
 
   const qr=document.getElementById('mfaQr');
   const secret=document.getElementById('mfaSecret');
-  if(qr) qr.src=normalizeQrSource(data?.totp?.qr_code||'');
-  if(secret) secret.textContent=data?.totp?.secret||'';
+  const totp=data?.totp||{};
+  const qrSrc=qrFromTotpData(totp);
+  const secretValue=totp.secret||totp.secret_key||totp.secretKey||'';
+
+  if(qr){
+    if(qrSrc){
+      qr.src=qrSrc;
+      qr.style.display='block';
+      qr.onerror=()=>{
+        qr.style.display='none';
+        authMessage('QR-Code konnte nicht angezeigt werden. Bitte den Einrichtungsschlüssel darunter manuell in der Authenticator-App eingeben.');
+      };
+    }else{
+      qr.removeAttribute('src');
+      qr.style.display='none';
+    }
+  }
+
+  if(secret){
+    secret.textContent=secretValue || 'Kein Einrichtungsschlüssel empfangen.';
+  }
+
+  if(!qrSrc && !secretValue){
+    authMessage('Supabase hat weder QR-Code noch Einrichtungsschlüssel geliefert. Bitte Abbrechen drücken und die 2-Faktor-Einrichtung erneut starten.');
+  }
+}
+
+async function copyMfaSecret(){
+  const value=document.getElementById('mfaSecret')?.textContent?.trim()||'';
+  if(!value || value.startsWith('Kein ')){
+    authMessage('Kein Einrichtungsschlüssel zum Kopieren vorhanden.');
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(value);
+    toast('Einrichtungsschlüssel kopiert.');
+  }catch(e){
+    authMessage('Kopieren nicht möglich. Bitte den Schlüssel markieren und manuell kopieren.');
+  }
 }
 
 async function verifyMfaEnrollment(){
