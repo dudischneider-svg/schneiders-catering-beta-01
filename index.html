@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 2.1 Cloud</title>
+<title>Schneiders Catering – Version 2.2 Secure Cloud</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -106,6 +106,17 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
   .top .actions{width:100%}
 }
 
+
+.security-panel{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.security-box{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
+.security-ok{background:#dcfce7;color:#166534;border-radius:9px;padding:10px;font-weight:700}
+.security-warn{background:#fff7ed;color:#9a3412;border-radius:9px;padding:10px;font-weight:700}
+.mfa-step{display:none;margin-top:14px}
+.mfa-step.active{display:block}
+.mfa-qr{display:block;max-width:230px;width:100%;margin:14px auto;background:#fff;border:10px solid #fff;border-radius:12px}
+.mfa-code{font-size:20px;letter-spacing:.15em;text-align:center}
+.passkey-login{width:100%;margin-top:10px}
+
 .auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#17191c}
 .auth-card{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 16px 50px #0005}
 .auth-card h1{margin:0 0 6px}.auth-card p{color:#6b7280}
@@ -119,20 +130,44 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
     <h1>Schneiders Catering</h1>
-    <p>Sicher anmelden</p>
-    <label>E-Mail
-      <input id="loginEmail" type="email" autocomplete="username" placeholder="E-Mail-Adresse">
-    </label>
-    <label style="margin-top:12px">Passwort
-      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Passwort">
-    </label>
-    <button class="btn ok" style="width:100%;margin-top:16px" onclick="loginToApp()">Anmelden</button>
+    <p id="authSubtitle">Sicher anmelden</p>
+
+    <div id="primaryLogin">
+      <label>E-Mail
+        <input id="loginEmail" type="email" autocomplete="username" placeholder="E-Mail-Adresse">
+      </label>
+      <label style="margin-top:12px">Passwort
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Passwort">
+      </label>
+      <button class="btn ok" style="width:100%;margin-top:16px" onclick="loginToApp()">Mit E-Mail & Passwort anmelden</button>
+      <button id="passkeyLoginBtn" class="btn secondary passkey-login" onclick="loginWithPasskey()">🔐 Mit Face ID / Fingerabdruck / Passkey</button>
+    </div>
+
+    <div id="mfaChallengeStep" class="mfa-step">
+      <div class="security-warn">Zweiter Faktor erforderlich</div>
+      <p>Öffne deine Authenticator-App und gib den 6-stelligen Code ein.</p>
+      <input id="mfaChallengeCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+      <button class="btn ok" style="width:100%;margin-top:12px" onclick="verifyMfaChallenge()">2-Faktor bestätigen</button>
+      <button class="btn secondary" style="width:100%;margin-top:8px" onclick="logoutFromApp()">Abbrechen</button>
+    </div>
+
+    <div id="mfaEnrollStep" class="mfa-step">
+      <div class="security-warn">2-Faktor-Authentifizierung einrichten</div>
+      <p>Für den Zugriff auf Firmendaten ist ein zweiter Faktor vorgesehen. Scanne den QR-Code mit einer Authenticator-App.</p>
+      <img id="mfaQr" class="mfa-qr" alt="QR-Code für Authenticator">
+      <div class="muted">Falls Scannen nicht geht, Secret manuell eingeben:</div>
+      <div id="mfaSecret" class="security-box" style="overflow-wrap:anywhere"></div>
+      <input id="mfaEnrollCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+      <button class="btn ok" style="width:100%;margin-top:12px" onclick="verifyMfaEnrollment()">2-Faktor aktivieren</button>
+      <button class="btn secondary" style="width:100%;margin-top:8px" onclick="logoutFromApp()">Abbrechen</button>
+    </div>
+
     <div id="authError" class="auth-error"></div>
   </div>
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.1 Cloud</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.2 Secure Cloud</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -160,8 +195,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 <main id="main"></main>
 </div>
 <div id="toast" class="toast"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">document.addEventListener('DOMContentLoaded',applyCustomerMode);
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 <script>
 const state={timer:null,start:null,activeTask:null};
 const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
@@ -175,6 +209,9 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD';
 let sb=null;
 let currentUser=null;
 let cloudSyncBusy=false;
+let pendingMfaFactorId=null;
+let pendingEnrollFactorId=null;
+let mfaEnrollStarted=false;
 
 function cloudConfigured(){
   return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co')
@@ -188,59 +225,293 @@ function authMessage(message){
   el.style.display=message?'block':'none';
 }
 
+function setAuthStep(step){
+  const primary=document.getElementById('primaryLogin');
+  const challenge=document.getElementById('mfaChallengeStep');
+  const enroll=document.getElementById('mfaEnrollStep');
+  if(primary) primary.style.display=step==='primary'?'block':'none';
+  if(challenge) challenge.classList.toggle('active',step==='challenge');
+  if(enroll) enroll.classList.toggle('active',step==='enroll');
+  const subtitle=document.getElementById('authSubtitle');
+  if(subtitle){
+    subtitle.textContent=step==='challenge'?'2-Faktor bestätigen':step==='enroll'?'2-Faktor einrichten':'Sicher anmelden';
+  }
+}
+
+function normalizeQrSource(qr){
+  if(!qr) return '';
+  if(qr.startsWith('data:')) return qr;
+  if(qr.trim().startsWith('<svg')){
+    return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr);
+  }
+  return qr;
+}
+
+async function getVerifiedTotpFactor(){
+  const {data,error}=await sb.auth.mfa.listFactors();
+  if(error) throw error;
+  const factors=data?.totp||[];
+  return factors.find(f=>!f.status || f.status==='verified') || null;
+}
+
+async function ensureStrongAuth(session){
+  if(!session?.user){showLogin();return false;}
+
+  const {data:aal,error:aalError}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if(aalError) throw aalError;
+
+  if(aal?.currentLevel==='aal2'){
+    await enterAuthenticatedApp(session.user);
+    return true;
+  }
+
+  const factor=await getVerifiedTotpFactor();
+
+  if(factor){
+    pendingMfaFactorId=factor.id;
+    document.getElementById('authScreen').style.display='flex';
+    document.getElementById('appRoot').style.display='none';
+    setAuthStep('challenge');
+    return false;
+  }
+
+  await beginMfaEnrollment();
+  return false;
+}
+
 async function bootstrapAuth(){
   if(!cloudConfigured()){
     authMessage('Supabase ist noch nicht konfiguriert. Bitte Project URL und Publishable Key in der index.html einsetzen.');
     return;
   }
+
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
-    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,experimental:{passkey:true}}
   });
+
   const {data:{session},error}=await sb.auth.getSession();
   if(error){authMessage(error.message);return;}
-  if(session?.user) await enterAuthenticatedApp(session.user);
+
+  if(session?.user){
+    try{await ensureStrongAuth(session);}catch(err){authMessage(err.message||String(err));}
+  }else{
+    showLogin();
+  }
+
   sb.auth.onAuthStateChange(async(event,sessionNow)=>{
-    if(event==='SIGNED_OUT' || !sessionNow?.user){showLogin();return;}
-    if(event==='SIGNED_IN' && sessionNow?.user && sessionNow.user.id!==currentUser?.id){
-      await enterAuthenticatedApp(sessionNow.user);
+    if(event==='SIGNED_OUT' || !sessionNow?.user){
+      currentUser=null;
+      showLogin();
+      return;
+    }
+
+    if(['SIGNED_IN','TOKEN_REFRESHED','MFA_CHALLENGE_VERIFIED'].includes(event)){
+      setTimeout(async()=>{
+        try{
+          const {data:{session}}=await sb.auth.getSession();
+          if(session?.user) await ensureStrongAuth(session);
+        }catch(err){
+          console.error(err);
+        }
+      },0);
     }
   });
 }
 
 async function loginToApp(){
   authMessage('');
-  if(!sb){
-    if(!cloudConfigured()){authMessage('Supabase-Konfiguration fehlt.');return;}
-    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true}});
+  try{
+    if(!sb){
+      if(!cloudConfigured()){authMessage('Supabase-Konfiguration fehlt.');return;}
+      sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
+        auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,experimental:{passkey:true}}
+      });
+    }
+
+    const email=document.getElementById('loginEmail').value.trim();
+    const password=document.getElementById('loginPassword').value;
+    if(!email||!password){authMessage('Bitte E-Mail und Passwort eingeben.');return;}
+
+    const {data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    if(data.session) await ensureStrongAuth(data.session);
+  }catch(error){
+    authMessage('Anmeldung fehlgeschlagen: '+(error?.message||error));
   }
-  const email=document.getElementById('loginEmail').value.trim();
-  const password=document.getElementById('loginPassword').value;
-  if(!email||!password){authMessage('Bitte E-Mail und Passwort eingeben.');return;}
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
-  if(error){authMessage('Anmeldung fehlgeschlagen: '+error.message);return;}
-  if(data.user) await enterAuthenticatedApp(data.user);
+}
+
+async function loginWithPasskey(){
+  authMessage('');
+  try{
+    if(!window.PublicKeyCredential){
+      throw new Error('Dieses Gerät bzw. dieser Browser unterstützt keine Passkeys.');
+    }
+    if(!sb){
+      if(!cloudConfigured()) throw new Error('Supabase-Konfiguration fehlt.');
+      sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
+        auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,experimental:{passkey:true}}
+      });
+    }
+    const {data,error}=await sb.auth.signInWithPasskey();
+    if(error) throw error;
+    if(data?.session) await ensureStrongAuth(data.session);
+  }catch(error){
+    authMessage('Passkey-Anmeldung nicht möglich: '+(error?.message||error));
+  }
+}
+
+async function beginMfaEnrollment(){
+  if(mfaEnrollStarted && pendingEnrollFactorId){
+    document.getElementById('authScreen').style.display='flex';
+    document.getElementById('appRoot').style.display='none';
+    setAuthStep('enroll');
+    return;
+  }
+
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('appRoot').style.display='none';
+  setAuthStep('enroll');
+  authMessage('');
+
+  const {data,error}=await sb.auth.mfa.enroll({
+    factorType:'totp',
+    friendlyName:'Schneiders Catering'
+  });
+  if(error) throw error;
+
+  mfaEnrollStarted=true;
+  pendingEnrollFactorId=data.id;
+
+  const qr=document.getElementById('mfaQr');
+  const secret=document.getElementById('mfaSecret');
+  if(qr) qr.src=normalizeQrSource(data?.totp?.qr_code||'');
+  if(secret) secret.textContent=data?.totp?.secret||'';
+}
+
+async function verifyMfaEnrollment(){
+  authMessage('');
+  const code=(document.getElementById('mfaEnrollCode')?.value||'').trim();
+  if(!/^\d{6}$/.test(code)){authMessage('Bitte den 6-stelligen Code eingeben.');return;}
+
+  try{
+    const {error}=await sb.auth.mfa.challengeAndVerify({
+      factorId:pendingEnrollFactorId,
+      code
+    });
+    if(error) throw error;
+
+    pendingEnrollFactorId=null;
+    mfaEnrollStarted=false;
+    const {data:{session}}=await sb.auth.getSession();
+    if(session?.user) await enterAuthenticatedApp(session.user);
+  }catch(error){
+    authMessage('2-Faktor konnte nicht aktiviert werden: '+(error?.message||error));
+  }
+}
+
+async function verifyMfaChallenge(){
+  authMessage('');
+  const code=(document.getElementById('mfaChallengeCode')?.value||'').trim();
+  if(!/^\d{6}$/.test(code)){authMessage('Bitte den 6-stelligen Code eingeben.');return;}
+
+  try{
+    const factorId=pendingMfaFactorId || (await getVerifiedTotpFactor())?.id;
+    if(!factorId) throw new Error('Kein bestätigter 2-Faktor gefunden.');
+
+    const {error}=await sb.auth.mfa.challengeAndVerify({factorId,code});
+    if(error) throw error;
+
+    pendingMfaFactorId=null;
+    const {data:{session}}=await sb.auth.getSession();
+    if(session?.user) await enterAuthenticatedApp(session.user);
+  }catch(error){
+    authMessage('2-Faktor-Code ungültig: '+(error?.message||error));
+  }
 }
 
 async function logoutFromApp(){
   if(sb) await sb.auth.signOut();
   currentUser=null;
+  pendingMfaFactorId=null;
+  pendingEnrollFactorId=null;
+  mfaEnrollStarted=false;
   showLogin();
 }
 
 function showLogin(){
   document.getElementById('authScreen').style.display='flex';
   document.getElementById('appRoot').style.display='none';
+  setAuthStep('primary');
+  authMessage('');
 }
 
 async function enterAuthenticatedApp(user){
   currentUser=user;
   document.getElementById('authScreen').style.display='none';
-  document.getElementById('appRoot').style.display='grid';
+  document.getElementById('appRoot').style.display='block';
   const label=document.getElementById('cloudUser');
-  if(label) label.textContent='🔒 '+(user.email||'Angemeldet');
+  if(label) label.textContent='🔒 '+(user.email||'Angemeldet')+' · MFA';
   await loadCloudData(false);
   applyCustomerMode();
   render('dashboard');
+  setTimeout(()=>refreshSecurityStatus(),0);
+}
+
+async function startMfaEnrollmentFromSettings(){
+  try{
+    const factor=await getVerifiedTotpFactor();
+    if(factor){
+      toast('2-Faktor ist bereits aktiviert.');
+      await refreshSecurityStatus();
+      return;
+    }
+    await beginMfaEnrollment();
+  }catch(error){
+    cloudError('2-Faktor',error);
+  }
+}
+
+async function registerPasskey(){
+  try{
+    if(!window.PublicKeyCredential) throw new Error('Dieser Browser unterstützt keine Passkeys.');
+    const {data,error}=await sb.auth.registerPasskey();
+    if(error) throw error;
+    toast('Passkey registriert: '+(data?.friendly_name||'Gerät'));
+    await refreshSecurityStatus();
+  }catch(error){
+    cloudError('Passkey',error);
+  }
+}
+
+async function refreshSecurityStatus(){
+  const el=document.getElementById('securityStatus');
+  if(!el || !sb || !currentUser) return;
+
+  try{
+    const [{data:aal,error:aalError},{data:factors,error:factorsError}]=await Promise.all([
+      sb.auth.mfa.getAuthenticatorAssuranceLevel(),
+      sb.auth.mfa.listFactors()
+    ]);
+    if(aalError) throw aalError;
+    if(factorsError) throw factorsError;
+
+    const verified=(factors?.totp||[]).filter(f=>!f.status || f.status==='verified').length;
+    let passkeyText='Passkey: nicht geprüft';
+    try{
+      if(sb.auth.passkey?.list){
+        const {data:passkeys,error}=await sb.auth.passkey.list();
+        if(!error) passkeyText=`Passkeys: ${(passkeys||[]).length}`;
+      }
+    }catch(_){}
+
+    el.innerHTML=`<div class="${aal?.currentLevel==='aal2'?'security-ok':'security-warn'}">
+      Sitzung: ${aal?.currentLevel==='aal2'?'AAL2 · 2-Faktor bestätigt':'AAL1 · zweiter Faktor noch nicht bestätigt'}
+    </div>
+    <div style="margin-top:8px">Authenticator-Faktoren: ${verified}</div>
+    <div>${passkeyText}</div>`;
+  }catch(error){
+    el.textContent='Sicherheitsstatus konnte nicht geladen werden: '+(error?.message||error);
+  }
 }
 
 function cloudError(prefix,error){
@@ -624,6 +895,17 @@ pages.settings=()=>shell('Einstellungen','Firmendaten für Dokumente sowie Koste
       <button class="btn secondary" onclick="reloadFromCloud()">Daten aus Cloud laden</button>
     </div>
   </div>
+  <div class="card">
+    <h2>🔐 Sicherheit</h2>
+    <div id="securityStatus" class="security-box">Sicherheitsstatus wird geladen …</div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn ok" onclick="startMfaEnrollmentFromSettings()">2-Faktor einrichten</button>
+      <button class="btn secondary" onclick="registerPasskey()">Face ID / Fingerabdruck / Passkey registrieren</button>
+      <button class="btn secondary" onclick="refreshSecurityStatus()">Status aktualisieren</button>
+    </div>
+    <p class="muted" style="margin-top:10px">Passkeys verwenden je nach Gerät Face ID, Fingerabdruck, Geräte-PIN oder einen Sicherheitsschlüssel. 2FA bleibt für besonders geschützte Sitzungen zusätzlich bestehen.</p>
+  </div>
+
   <div class="card">
     <h2>Datensicherung</h2>
     <p class="muted">Kunden, Aufträge, Rezepte, Zutatenpreise und Einstellungen sichern oder wiederherstellen.</p>
