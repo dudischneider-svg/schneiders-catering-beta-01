@@ -98,15 +98,26 @@ pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',
 </div>
 `);
 
-pages.recipes=()=>shell('Rezepte','Eigene Pizza-Rezepte anlegen, bearbeiten und löschen.',`
-<div class="card">
-  <div class="row">
-    <h2>Rezepte</h2>
-    <button class="btn" onclick="showNewRecipe()">+ Rezept</button>
+pages.recipes=()=>shell('Rezepte','Zutatenpreise pflegen und Rezeptkosten automatisch berechnen.',`
+<div class="grid2">
+  <div class="card">
+    <div class="row">
+      <h2>Rezepte</h2>
+      <button class="btn" onclick="showNewRecipe()">+ Rezept</button>
+    </div>
+    <div id="recipeFormWrap"></div>
+    <div id="recipeList" style="margin-top:14px">${renderRecipeList()}</div>
   </div>
 
-  <div id="recipeFormWrap"></div>
-  <div id="recipeList" style="margin-top:14px">${renderRecipeList()}</div>
+  <div class="card">
+    <div class="row">
+      <h2>Zutaten & Einkaufspreise</h2>
+      <button class="btn" onclick="showNewIngredient()">+ Zutat</button>
+    </div>
+    <p class="muted">Packungsgröße und Einkaufspreis einmal hinterlegen. Daraus berechnet die App automatisch den Preis pro Gramm und die Rezeptkosten.</p>
+    <div id="ingredientFormWrap"></div>
+    <div id="ingredientList" style="margin-top:14px">${renderIngredientList()}</div>
+  </div>
 </div>
 `);
 
@@ -239,6 +250,149 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
 
 
 
+function getIngredients(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('ingredients')||'null');
+    if(Array.isArray(saved)) return saved;
+  }catch(e){}
+
+  const defaults=[
+    {name:'Pizzateig',packGrams:1000,packPrice:1.30},
+    {name:'Tomatensauce',packGrams:2000,packPrice:6.49},
+    {name:'Fior di Latte',packGrams:2500,packPrice:18.90},
+    {name:'Parmesan',packGrams:1000,packPrice:17.90},
+    {name:'Salami',packGrams:500,packPrice:8.99},
+    {name:'Nutella',packGrams:3000,packPrice:24.90},
+    {name:'Erdbeeren',packGrams:500,packPrice:4.99},
+    {name:'Pudding',packGrams:1000,packPrice:3.49}
+  ];
+
+  localStorage.setItem('ingredients',JSON.stringify(defaults));
+  return defaults;
+}
+
+function saveIngredients(items){
+  localStorage.setItem('ingredients',JSON.stringify(items));
+}
+
+function ingredientPricePerGram(name){
+  const item=getIngredients().find(i=>i.name.trim().toLowerCase()===String(name||'').trim().toLowerCase());
+  if(!item || Number(item.packGrams)<=0) return 0;
+  return Number(item.packPrice||0)/Number(item.packGrams||1);
+}
+
+function formatPricePerKg(item){
+  if(!item || Number(item.packGrams)<=0) return money(0);
+  return money((Number(item.packPrice||0)/Number(item.packGrams))*1000);
+}
+
+function renderIngredientList(){
+  const items=getIngredients();
+  if(!items.length) return '<p class="muted">Noch keine Zutaten hinterlegt.</p>';
+
+  return `<div class="list">${items.map((i,index)=>`
+    <div class="item order-item" onclick="openIngredient(${index})">
+      <div class="row">
+        <strong>${escapeHtml(i.name||'Ohne Namen')}</strong>
+        <span class="pill">${formatPricePerKg(i)} / kg</span>
+      </div>
+      <div class="muted">${Number(i.packGrams||0)} g Packung · ${money(Number(i.packPrice||0))}</div>
+      <div class="muted">${(ingredientPricePerGram(i.name)).toFixed(4).replace('.',',')} € / g</div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function ingredientFormHtml(i={},index=null){
+  const isEdit=index!==null;
+  return `<div class="card" style="margin-top:14px">
+    <h3>${isEdit?'Zutat bearbeiten':'Neue Zutat'}</h3>
+    <div class="formgrid">
+      <label>Name
+        <input id="ingredientName" value="${escapeHtml(i.name||'')}" placeholder="z. B. Fior di Latte">
+      </label>
+      <label>Packungsgröße in g
+        <input id="ingredientPackGrams" type="number" min="1" value="${Number(i.packGrams||0)}">
+      </label>
+      <label>Packungspreis €
+        <input id="ingredientPackPrice" type="number" min="0" step="0.01" value="${Number(i.packPrice||0)}">
+      </label>
+    </div>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn ok" onclick="${isEdit?`updateIngredient(${index})`:'saveIngredient()'}">${isEdit?'Änderungen speichern':'Zutat speichern'}</button>
+      <button class="btn secondary" onclick="closeIngredientForm()">Schließen</button>
+      ${isEdit?`<button class="btn secondary" onclick="deleteIngredient(${index})">Zutat löschen</button>`:''}
+    </div>
+  </div>`;
+}
+
+function showNewIngredient(){
+  const wrap=document.getElementById('ingredientFormWrap');
+  if(!wrap) return;
+  wrap.innerHTML=ingredientFormHtml();
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function openIngredient(index){
+  const items=getIngredients();
+  const i=items[index];
+  if(!i) return;
+  const wrap=document.getElementById('ingredientFormWrap');
+  if(!wrap) return;
+  wrap.innerHTML=ingredientFormHtml(i,index);
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function readIngredientForm(){
+  return {
+    name:document.getElementById('ingredientName').value.trim(),
+    packGrams:Number(document.getElementById('ingredientPackGrams').value||0),
+    packPrice:Number(document.getElementById('ingredientPackPrice').value||0)
+  };
+}
+
+function saveIngredient(){
+  const i=readIngredientForm();
+  if(!i.name || i.packGrams<=0){
+    toast('Bitte Name und Packungsgröße eingeben.');
+    return;
+  }
+  const items=getIngredients();
+  items.push(i);
+  saveIngredients(items);
+  toast('Zutat gespeichert.');
+  render('recipes');
+}
+
+function updateIngredient(index){
+  const i=readIngredientForm();
+  if(!i.name || i.packGrams<=0){
+    toast('Bitte Name und Packungsgröße eingeben.');
+    return;
+  }
+  const items=getIngredients();
+  if(!items[index]) return;
+  items[index]=i;
+  saveIngredients(items);
+  toast('Zutat aktualisiert.');
+  render('recipes');
+}
+
+function deleteIngredient(index){
+  const items=getIngredients();
+  const i=items[index];
+  if(!i) return;
+  if(!confirm(`Zutat "${i.name||'Ohne Namen'}" wirklich löschen?`)) return;
+  items.splice(index,1);
+  saveIngredients(items);
+  toast('Zutat gelöscht.');
+  render('recipes');
+}
+
+function closeIngredientForm(){
+  const wrap=document.getElementById('ingredientFormWrap');
+  if(wrap) wrap.innerHTML='';
+}
+
 function getRecipes(){
   try{
     const saved=JSON.parse(localStorage.getItem('recipes')||'null');
@@ -292,6 +446,38 @@ function saveRecipes(recipes){
   localStorage.setItem('recipes',JSON.stringify(recipes));
 }
 
+function calculateRecipeCost(recipe={}){
+  const parts=[
+    ['Pizzateig',Number(recipe.dough||0)],
+    ['Tomatensauce',Number(recipe.sauce||0)],
+    ['Fior di Latte',Number(recipe.cheese||0)],
+    [recipe.toppingName||'',Number(recipe.topping||0)],
+    [recipe.extraName||'',Number(recipe.extra||0)]
+  ];
+
+  return parts.reduce((sum,[name,grams])=>{
+    if(!name || grams<=0) return sum;
+    return sum+(ingredientPricePerGram(name)*grams);
+  },0);
+}
+
+function refreshRecipeCostPreview(){
+  const el=document.getElementById('recipeCostPreview');
+  if(!el) return;
+
+  const temp={
+    dough:Number(document.getElementById('recipeDough')?.value||0),
+    sauce:Number(document.getElementById('recipeSauce')?.value||0),
+    cheese:Number(document.getElementById('recipeCheese')?.value||0),
+    toppingName:document.getElementById('recipeToppingName')?.value.trim()||'',
+    topping:Number(document.getElementById('recipeTopping')?.value||0),
+    extraName:document.getElementById('recipeExtraName')?.value.trim()||'',
+    extra:Number(document.getElementById('recipeExtra')?.value||0)
+  };
+
+  el.innerHTML=`Automatische Warenkosten pro Pizza: <b>${money(calculateRecipeCost(temp))}</b>`;
+}
+
 function renderRecipeList(){
   const recipes=getRecipes();
   if(!recipes.length) return '<p class="muted">Noch keine Rezepte angelegt.</p>';
@@ -300,7 +486,7 @@ function renderRecipeList(){
     <div class="item order-item" onclick="openRecipe(${index})">
       <div class="row">
         <strong>🍕 ${escapeHtml(r.name||'Ohne Namen')}</strong>
-        <span class="pill">${money(Number(r.cost||0))} / Pizza</span>
+        <span class="pill">${money(calculateRecipeCost(r))} / Pizza</span>
       </div>
       <div class="muted">Teig ${Number(r.dough||0)} g · Sauce ${Number(r.sauce||0)} g · Käse ${Number(r.cheese||0)} g</div>
       <div class="muted">${r.toppingName?`${escapeHtml(r.toppingName)} ${Number(r.topping||0)} g`:''}${r.extraName?` · ${escapeHtml(r.extraName)} ${Number(r.extra||0)} g`:''}</div>
@@ -320,37 +506,37 @@ function recipeFormHtml(r={},index=null){
           <input id="recipeName" value="${escapeHtml(r.name||'')}" placeholder="z. B. Prosciutto">
         </label>
 
-        <label>Kosten pro Pizza €
-          <input id="recipeCost" type="number" step="0.01" value="${Number(r.cost||0)}">
-        </label>
-
         <label>Teig g
-          <input id="recipeDough" type="number" min="0" value="${Number(r.dough||300)}">
+          <input id="recipeDough" oninput="refreshRecipeCostPreview()" type="number" min="0" value="${Number(r.dough||300)}">
         </label>
 
         <label>Tomatensauce g
-          <input id="recipeSauce" type="number" min="0" value="${Number(r.sauce||0)}">
+          <input id="recipeSauce" oninput="refreshRecipeCostPreview()" type="number" min="0" value="${Number(r.sauce||0)}">
         </label>
 
         <label>Käse g
-          <input id="recipeCheese" type="number" min="0" value="${Number(r.cheese||0)}">
+          <input id="recipeCheese" oninput="refreshRecipeCostPreview()" type="number" min="0" value="${Number(r.cheese||0)}">
         </label>
 
         <label>Belag 1 Name
-          <input id="recipeToppingName" value="${escapeHtml(r.toppingName||'')}">
+          <input id="recipeToppingName" oninput="refreshRecipeCostPreview()" value="${escapeHtml(r.toppingName||'')}">
         </label>
 
         <label>Belag 1 g
-          <input id="recipeTopping" type="number" min="0" value="${Number(r.topping||0)}">
+          <input id="recipeTopping" oninput="refreshRecipeCostPreview()" type="number" min="0" value="${Number(r.topping||0)}">
         </label>
 
         <label>Belag 2 Name
-          <input id="recipeExtraName" value="${escapeHtml(r.extraName||'')}">
+          <input id="recipeExtraName" oninput="refreshRecipeCostPreview()" value="${escapeHtml(r.extraName||'')}">
         </label>
 
         <label>Belag 2 g
-          <input id="recipeExtra" type="number" min="0" value="${Number(r.extra||0)}">
+          <input id="recipeExtra" oninput="refreshRecipeCostPreview()" type="number" min="0" value="${Number(r.extra||0)}">
         </label>
+      </div>
+
+      <div id="recipeCostPreview" class="kpi" style="margin-top:12px">
+        Automatische Warenkosten pro Pizza: <b>${money(calculateRecipeCost(r))}</b>
       </div>
 
       <label style="margin-top:12px">Notizen
@@ -385,7 +571,6 @@ function openRecipe(index){
 function readRecipeForm(){
   return {
     name:document.getElementById('recipeName').value.trim(),
-    cost:Number(document.getElementById('recipeCost').value||0),
     dough:Number(document.getElementById('recipeDough').value||0),
     sauce:Number(document.getElementById('recipeSauce').value||0),
     cheese:Number(document.getElementById('recipeCheese').value||0),
@@ -664,7 +849,7 @@ function renderShoppingList(orderIndex=0){
             onchange="toggleShoppingItem(${orderIndex},'${escapeHtml(name)}',this.checked)">
           <span style="flex:1">
             <strong style="${checked?'text-decoration:line-through;opacity:.65':''}">${escapeHtml(name)}</strong>
-            <span class="muted">${formatIngredientAmount(name,grams)}</span>
+            <span class="muted">${formatIngredientAmount(name,grams)} · ca. ${money(ingredientPricePerGram(name)*grams)}</span>
           </span>
         </label>`;
       }).join('')}
@@ -907,7 +1092,7 @@ function calcOrderRecipeFromItems(items=[]){
     if(!recipe) return;
 
     totalPizzas+=count;
-    totalCost+=count*Number(recipe.cost||0);
+    totalCost+=count*calculateRecipeCost(recipe);
 
     Object.entries(recipeIngredients(recipe)).forEach(([name,grams])=>{
       ingredients[name]=(ingredients[name]||0)+(Number(grams)*count);
