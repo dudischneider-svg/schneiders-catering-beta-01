@@ -161,7 +161,7 @@ pages.orders=()=>shell('Aufträge',`
 
   <div class="card">
     <h3>Aufträge</h3>
-    <div id="orderList" class="muted">${(JSON.parse(localStorage.getItem('orders')||'[]').map(o=>'<div class="item"><strong>'+o.customer+'</strong><br>'+o.date+' · '+o.time+' · '+o.people+' Personen · '+o.location+' · '+o.price+' €</div>').join(''))||'Noch keine Aufträge angelegt.'}</div>
+    <div id="orderList" class="muted">${(()=>{const orders=JSON.parse(localStorage.getItem('orders')||'[]');return orders.length?orders.map(o=>'<div class="item"><strong>'+o.customer+'</strong><br>'+o.date+' · '+o.time+' · '+o.people+' Personen · '+o.location+' · '+o.price+' €</div>').join(''):'Noch keine Aufträge angelegt.'})()}</div>
   </div>
 </div>
 `);
