@@ -821,6 +821,28 @@ function toggleShoppingItem(orderIndex, ingredient, checked){
   refreshShoppingList();
 }
 
+function ingredientPurchaseInfo(name,grams){
+  const item=getIngredients().find(i=>i.name.trim().toLowerCase()===String(name||'').trim().toLowerCase());
+  if(!item || Number(item.packGrams)<=0){
+    return {packs:0,packGrams:0,packPrice:0,purchaseCost:0,leftover:0};
+  }
+
+  const packGrams=Number(item.packGrams||0);
+  const packPrice=Number(item.packPrice||0);
+  const packs=Math.ceil(Number(grams||0)/packGrams);
+  const purchaseCost=packs*packPrice;
+  const leftover=(packs*packGrams)-Number(grams||0);
+
+  return {packs,packGrams,packPrice,purchaseCost,leftover};
+}
+
+function calcShoppingPurchaseTotal(order){
+  const calc=calcOrderRecipeFromItems(order?.recipeItems||legacyPizzasToRecipeItems(order?.pizzas));
+  return Object.entries(calc.ingredients).reduce((sum,[name,grams])=>{
+    return sum+ingredientPurchaseInfo(name,grams).purchaseCost;
+  },0);
+}
+
 function renderShoppingList(orderIndex=0){
   const orders=getOrders();
   const o=orders[orderIndex];
@@ -849,13 +871,16 @@ function renderShoppingList(orderIndex=0){
             onchange="toggleShoppingItem(${orderIndex},'${escapeHtml(name)}',this.checked)">
           <span style="flex:1">
             <strong style="${checked?'text-decoration:line-through;opacity:.65':''}">${escapeHtml(name)}</strong>
-            <span class="muted">${formatIngredientAmount(name,grams)} · ca. ${money(ingredientPricePerGram(name)*grams)}</span>
+            ${(()=>{const p=ingredientPurchaseInfo(name,grams);return `<span class="muted">Benötigt: ${formatIngredientAmount(name,grams)} · Kaufen: ${p.packs} × ${formatIngredientAmount(name,p.packGrams)} · ${money(p.packPrice)} je Packung · Einkauf ${money(p.purchaseCost)}${p.leftover>0?` · Rest ${formatIngredientAmount(name,p.leftover)}`:''}</span>`})()}
           </span>
         </label>`;
       }).join('')}
     </div>
 
-    <div class="calc-total">Rezept-Warenkosten: ${money(calc.totalCost)}</div>
+    <div class="card" style="margin-top:14px">
+      <div class="row"><strong>Verbrauchskosten</strong><span>${money(calc.totalCost)}</span></div>
+      <div class="row" style="margin-top:8px"><strong>Tatsächlicher Einkauf (volle Packungen)</strong><span>${money(calcShoppingPurchaseTotal(o))}</span></div>
+    </div>
   `;
 }
 
@@ -1282,6 +1307,24 @@ function saveOrder(){
   render('orders');
 }
 
+function renderOrderMargin(order){
+  const items=order?.recipeItems||legacyPizzasToRecipeItems(order?.pizzas);
+  const calc=calcOrderRecipeFromItems(items);
+  const revenue=Number(order?.price||0);
+  const purchase=calcShoppingPurchaseTotal(order);
+  const contribution=revenue-purchase;
+
+  if(!revenue && !calc.totalPizzas) return '';
+
+  return `<div class="card" style="margin-top:12px">
+    <h3>Auftragsübersicht</h3>
+    <div class="row"><span>Verkaufspreis</span><strong>${money(revenue)}</strong></div>
+    <div class="row" style="margin-top:7px"><span>Verbrauchskosten Zutaten</span><strong>${money(calc.totalCost)}</strong></div>
+    <div class="row" style="margin-top:7px"><span>Einkauf volle Packungen</span><strong>${money(purchase)}</strong></div>
+    <div class="row" style="margin-top:9px"><span>Übrig vor Arbeits-/Fahrtkosten</span><strong>${money(contribution)}</strong></div>
+  </div>`;
+}
+
 function openOrder(index){
   const orders=getOrders();
   const o=orders[index];
@@ -1361,6 +1404,7 @@ function openOrder(index){
         </div>
         <div id="editOrderRecipeRows">${renderRecipeRows(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas), 'edit')}</div>
         <div id="editOrderCalc" class="calc-summary">${renderOrderCalcFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}</div>
+        ${renderOrderMargin(o)}
       </div>
 
       <label style="margin-top:12px">Notizen
