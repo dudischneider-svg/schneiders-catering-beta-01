@@ -172,19 +172,12 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
     </div>
 
     <div class="card" style="margin-top:14px">
-      <h3>Pizza-Auswahl</h3>
-      <div class="formgrid">
-        <label>Margherita
-          <input id="orderPizzaMargherita" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
-        </label>
-        <label>Salami
-          <input id="orderPizzaSalami" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
-        </label>
-        <label>Nutella-Pizza
-          <input id="orderPizzaNutella" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
-        </label>
+      <div class="row">
+        <h3>Pizza-Auswahl</h3>
+        <button class="btn secondary" type="button" onclick="addNewOrderRecipeRow()">+ Rezept</button>
       </div>
-      <div id="newOrderCalc" class="calc-summary">${renderOrderCalcFromInputs()}</div>
+      <div id="newOrderRecipeRows">${renderRecipeRows([], 'new')}</div>
+      <div id="newOrderCalc" class="calc-summary">${renderOrderCalc({})}</div>
     </div>
 
     <label style="margin-top:12px">Notizen
@@ -622,7 +615,7 @@ function renderShoppingOrderOptions(){
   if(!orders.length) return '<option value="">Noch keine Aufträge</option>';
 
   return orders.map((o,index)=>{
-    const pizzaCount=calcOrderRecipe(o.pizzas||{}).totalPizzas;
+    const pizzaCount=calcOrderRecipeFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas)).totalPizzas;
     const label=`${o.customer||'Ohne Namen'} · ${o.date||''}${pizzaCount?` · ${pizzaCount} Pizzen`:''}`;
     return `<option value="${index}">${escapeHtml(label)}</option>`;
   }).join('');
@@ -648,7 +641,7 @@ function renderShoppingList(orderIndex=0){
   const o=orders[orderIndex];
   if(!o) return '<p class="muted">Kein Auftrag ausgewählt.</p>';
 
-  const calc=calcOrderRecipe(o.pizzas||{});
+  const calc=calcOrderRecipeFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas));
   if(!calc.totalPizzas) return '<p class="muted">Dieser Auftrag enthält noch keine Pizza-Mengen.</p>';
 
   const ingredients=Object.entries(calc.ingredients);
@@ -783,7 +776,7 @@ function renderDashboard(){
     </div>`;
   }
 
-  const calc=calcOrderRecipe(o.pizzas||{});
+  const calc=calcOrderRecipeFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas));
   const pizzaText=calc.totalPizzas?`${calc.totalPizzas} Pizzen`:`${escapeHtml(o.people||'')} Personen`;
 
   return `<div class="grid">
@@ -818,8 +811,8 @@ function renderDashboard(){
       <div class="item ${orderPaymentClass(o.payment||'Offen')}">
         <strong>${formatGermanDate(o.date)} · ${escapeHtml(o.time||'')} Uhr</strong>
         <div class="muted">${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')}</div>
-        ${renderPizzaSummary(o.pizzas)}
-        ${renderCompactCostSummary(o.pizzas)}
+        ${renderRecipeItemsSummary(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
+        ${renderCompactCostSummaryFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
         <div class="actions" style="margin-top:12px">
           <button class="btn" onclick="go('orders');setTimeout(()=>openOrder(${o._index}),0)">Auftrag öffnen</button>
           <button class="btn secondary" onclick="go('shopping')">🛒 Einkauf</button>
@@ -882,52 +875,59 @@ function orderPaymentClass(payment){
   return payment==='Bezahlt'?'order-payment-paid':payment==='Anzahlung'?'order-payment-partial':'order-payment-open';
 }
 
-const pizzaRecipes={
-  margherita:{
-    name:'Margherita',
-    cost:1.80,
-    ingredients:{'Pizzateig':300,'Tomatensauce':80,'Fior di Latte':90,'Parmesan':5}
-  },
-  salami:{
-    name:'Salami',
-    cost:2.29,
-    ingredients:{'Pizzateig':300,'Tomatensauce':80,'Fior di Latte':90,'Salami':25,'Parmesan':5}
-  },
-  nutella:{
-    name:'Nutella-Pizza',
-    cost:2.46,
-    ingredients:{'Pizzateig':300,'Nutella':100,'Erdbeeren':40,'Pudding':50}
-  }
-};
+function recipeIngredients(recipe){
+  const ingredients={};
+  if(Number(recipe.dough)>0) ingredients['Pizzateig']=Number(recipe.dough);
+  if(Number(recipe.sauce)>0) ingredients['Tomatensauce']=Number(recipe.sauce);
+  if(Number(recipe.cheese)>0) ingredients['Fior di Latte']=Number(recipe.cheese);
+  if(recipe.toppingName && Number(recipe.topping)>0) ingredients[recipe.toppingName]=Number(recipe.topping);
+  if(recipe.extraName && Number(recipe.extra)>0) ingredients[recipe.extraName]=Number(recipe.extra);
+  return ingredients;
+}
 
-function calcOrderRecipe(pizzas={}){
+function legacyPizzasToRecipeItems(pizzas={}){
+  const map=[
+    ['Margherita',Number(pizzas.margherita||0)],
+    ['Salami',Number(pizzas.salami||0)],
+    ['Nutella-Pizza',Number(pizzas.nutella||0)]
+  ];
+  return map.filter(([,count])=>count>0).map(([recipeName,count])=>({recipeName,count}));
+}
+
+function calcOrderRecipeFromItems(items=[]){
+  const recipes=getRecipes();
   const ingredients={};
   let totalPizzas=0;
   let totalCost=0;
 
-  Object.entries(pizzaRecipes).forEach(([key,recipe])=>{
-    const count=Number(pizzas[key]||0);
+  items.forEach(item=>{
+    const count=Number(item.count||0);
     if(count<=0) return;
+    const recipe=recipes.find(r=>r.name===item.recipeName);
+    if(!recipe) return;
 
     totalPizzas+=count;
-    totalCost+=count*recipe.cost;
+    totalCost+=count*Number(recipe.cost||0);
 
-    Object.entries(recipe.ingredients).forEach(([name,grams])=>{
-      ingredients[name]=(ingredients[name]||0)+(grams*count);
+    Object.entries(recipeIngredients(recipe)).forEach(([name,grams])=>{
+      ingredients[name]=(ingredients[name]||0)+(Number(grams)*count);
     });
   });
 
   return {ingredients,totalPizzas,totalCost};
 }
 
+function calcOrderRecipe(pizzas={}){
+  return calcOrderRecipeFromItems(legacyPizzasToRecipeItems(pizzas));
+}
+
 function formatIngredientAmount(name,grams){
-  if(name==='Pizzateig') return `${(grams/1000).toFixed(2).replace('.',',')} kg`;
   if(grams>=1000) return `${(grams/1000).toFixed(2).replace('.',',')} kg`;
   return `${Math.round(grams)} g`;
 }
 
-function renderOrderCalc(pizzas={}){
-  const calc=calcOrderRecipe(pizzas);
+function renderOrderCalcFromItems(items=[]){
+  const calc=calcOrderRecipeFromItems(items);
 
   if(!calc.totalPizzas){
     return '<p class="muted">Noch keine Pizza-Mengen eingetragen.</p>';
@@ -948,40 +948,82 @@ function renderOrderCalc(pizzas={}){
   </div>`;
 }
 
-function renderCompactCostSummary(pizzas={}){
-  const calc=calcOrderRecipe(pizzas);
+function renderOrderCalc(pizzas={}){
+  return renderOrderCalcFromItems(legacyPizzasToRecipeItems(pizzas));
+}
+
+function renderCompactCostSummaryFromItems(items=[]){
+  const calc=calcOrderRecipeFromItems(items);
   if(!calc.totalPizzas) return '';
   return `<div class="muted" style="margin-top:6px">🧾 ${calc.totalPizzas} Pizzen · Warenkosten ${money(calc.totalCost)}</div>`;
 }
 
-function readNewOrderPizzas(){
-  return {
-    margherita:Number(document.getElementById('orderPizzaMargherita')?.value||0),
-    salami:Number(document.getElementById('orderPizzaSalami')?.value||0),
-    nutella:Number(document.getElementById('orderPizzaNutella')?.value||0)
-  };
+function renderCompactCostSummary(pizzas={}){
+  return renderCompactCostSummaryFromItems(legacyPizzasToRecipeItems(pizzas));
 }
 
-function readEditOrderPizzas(){
-  return {
-    margherita:Number(document.getElementById('editPizzaMargherita')?.value||0),
-    salami:Number(document.getElementById('editPizzaSalami')?.value||0),
-    nutella:Number(document.getElementById('editPizzaNutella')?.value||0)
-  };
+function recipeOptions(selected=''){
+  return getRecipes().map(r=>`<option ${r.name===selected?'selected':''}>${escapeHtml(r.name)}</option>`).join('');
 }
 
-function renderOrderCalcFromInputs(){
-  return renderOrderCalc({margherita:0,salami:0,nutella:0});
+function renderRecipeRows(items=[], mode='new'){
+  const rows=items.length?items:[{recipeName:getRecipes()[0]?.name||'',count:0}];
+  return rows.map((item,index)=>`
+    <div class="formgrid item" data-recipe-row="${index}" style="margin-bottom:10px">
+      <label>Rezept
+        <select class="${mode}RecipeName" onchange="${mode==='new'?'refreshNewOrderCalc()':'refreshEditOrderCalc()'}">
+          ${recipeOptions(item.recipeName||'')}
+        </select>
+      </label>
+      <label>Anzahl
+        <input class="${mode}RecipeCount" type="number" min="0" value="${Number(item.count||0)}" oninput="${mode==='new'?'refreshNewOrderCalc()':'refreshEditOrderCalc()'}">
+      </label>
+      <button class="btn secondary" type="button" onclick="removeRecipeRow('${mode}',this)">Zeile entfernen</button>
+    </div>
+  `).join('');
+}
+
+function readRecipeRows(mode='new'){
+  const names=[...document.querySelectorAll(`.${mode}RecipeName`)];
+  const counts=[...document.querySelectorAll(`.${mode}RecipeCount`)];
+  return names.map((el,i)=>({recipeName:el.value,count:Number(counts[i]?.value||0)})).filter(x=>x.recipeName && x.count>0);
+}
+
+function addNewOrderRecipeRow(){
+  const wrap=document.getElementById('newOrderRecipeRows');
+  if(!wrap) return;
+  const div=document.createElement('div');
+  div.innerHTML=renderRecipeRows([{recipeName:getRecipes()[0]?.name||'',count:0}],'new');
+  wrap.insertAdjacentHTML('beforeend',div.innerHTML);
+}
+
+function addEditOrderRecipeRow(){
+  const wrap=document.getElementById('editOrderRecipeRows');
+  if(!wrap) return;
+  const div=document.createElement('div');
+  div.innerHTML=renderRecipeRows([{recipeName:getRecipes()[0]?.name||'',count:0}],'edit');
+  wrap.insertAdjacentHTML('beforeend',div.innerHTML);
+}
+
+function removeRecipeRow(mode,button){
+  const row=button.closest('.item');
+  if(row) row.remove();
+  mode==='new'?refreshNewOrderCalc():refreshEditOrderCalc();
 }
 
 function refreshNewOrderCalc(){
   const el=document.getElementById('newOrderCalc');
-  if(el) el.innerHTML=renderOrderCalc(readNewOrderPizzas());
+  if(el) el.innerHTML=renderOrderCalcFromItems(readRecipeRows('new'));
 }
 
 function refreshEditOrderCalc(){
   const el=document.getElementById('editOrderCalc');
-  if(el) el.innerHTML=renderOrderCalc(readEditOrderPizzas());
+  if(el) el.innerHTML=renderOrderCalcFromItems(readRecipeRows('edit'));
+}
+
+function renderRecipeItemsSummary(items=[]){
+  const parts=items.filter(x=>Number(x.count)>0).map(x=>`${Number(x.count)}× ${escapeHtml(x.recipeName)}`);
+  return parts.length?`<div class="muted" style="margin-top:6px">🍕 ${parts.join(' · ')}</div>`:'';
 }
 
 function renderPizzaSummary(pizzas){
@@ -1007,8 +1049,8 @@ function renderOrderList(){
       </div>
       <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
       <div style="margin-top:7px"><span class="payment-pill ${paymentClass(payment)}">Zahlung: ${escapeHtml(payment)}</span></div>
-      ${renderPizzaSummary(o.pizzas)}
-      ${renderCompactCostSummary(o.pizzas)}
+      ${renderRecipeItemsSummary(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
+      ${renderCompactCostSummaryFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
@@ -1026,11 +1068,7 @@ function saveOrder(){
   const street=document.querySelector('#orderStreet').value.trim();
   const payment=document.querySelector('#orderPayment').value;
   const notes=document.querySelector('#orderNotes').value.trim();
-  const pizzas={
-    margherita:Number(document.querySelector('#orderPizzaMargherita').value||0),
-    salami:Number(document.querySelector('#orderPizzaSalami').value||0),
-    nutella:Number(document.querySelector('#orderPizzaNutella').value||0)
-  };
+  const recipeItems=readRecipeRows('new');
 
   if(!customer || !date || !time || !people || !location || !price){
     toast('Bitte alle Felder ausfüllen.');
@@ -1050,7 +1088,7 @@ function saveOrder(){
     street,
     payment,
     notes,
-    pizzas,
+    recipeItems,
     status:'Anfrage'
   });
 
@@ -1132,19 +1170,12 @@ function openOrder(index){
       </div>
 
       <div class="card" style="margin-top:14px">
-        <h3>Pizza-Auswahl</h3>
-        <div class="formgrid">
-          <label>Margherita
-            <input id="editPizzaMargherita" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.margherita||0)}">
-          </label>
-          <label>Salami
-            <input id="editPizzaSalami" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.salami||0)}">
-          </label>
-          <label>Nutella-Pizza
-            <input id="editPizzaNutella" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.nutella||0)}">
-          </label>
+        <div class="row">
+          <h3>Pizza-Auswahl</h3>
+          <button class="btn secondary" type="button" onclick="addEditOrderRecipeRow()">+ Rezept</button>
         </div>
-        <div id="editOrderCalc" class="calc-summary">${renderOrderCalc(o.pizzas)}</div>
+        <div id="editOrderRecipeRows">${renderRecipeRows(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas), 'edit')}</div>
+        <div id="editOrderCalc" class="calc-summary">${renderOrderCalcFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}</div>
       </div>
 
       <label style="margin-top:12px">Notizen
@@ -1199,11 +1230,7 @@ function updateOrder(index){
     street:document.querySelector('#editStreet').value.trim(),
     payment:document.querySelector('#editPayment').value,
     notes:document.querySelector('#editNotes').value.trim(),
-    pizzas:{
-      margherita:Number(document.querySelector('#editPizzaMargherita').value||0),
-      salami:Number(document.querySelector('#editPizzaSalami').value||0),
-      nutella:Number(document.querySelector('#editPizzaNutella').value||0)
-    }
+    recipeItems:readRecipeRows('edit')
   };
 
   if(!updated.customer || !updated.date || !updated.time || !updated.people || !updated.location || !updated.price){
