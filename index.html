@@ -197,6 +197,22 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
       </label>
     </div>
 
+    <div class="card" style="margin-top:14px">
+      <h3>Pizza-Auswahl</h3>
+      <div class="formgrid">
+        <label>Margherita
+          <input id="orderPizzaMargherita" type="number" min="0" value="0">
+        </label>
+        <label>Salami
+          <input id="orderPizzaSalami" type="number" min="0" value="0">
+        </label>
+        <label>Nutella-Pizza
+          <input id="orderPizzaNutella" type="number" min="0" value="0">
+        </label>
+      </div>
+      <p class="muted" style="margin-bottom:0">Die Mengen werden mit dem Auftrag gespeichert. Einkauf und Kosten verknüpfen wir im nächsten Schritt.</p>
+    </div>
+
     <label style="margin-top:12px">Notizen
       <textarea id="orderNotes" placeholder="Wünsche, Besonderheiten, Ansprechpartner …"></textarea>
     </label>
@@ -443,6 +459,15 @@ function orderPaymentClass(payment){
   return payment==='Bezahlt'?'order-payment-paid':payment==='Anzahlung'?'order-payment-partial':'order-payment-open';
 }
 
+function renderPizzaSummary(pizzas){
+  if(!pizzas) return '';
+  const parts=[];
+  if(Number(pizzas.margherita)>0) parts.push(`${Number(pizzas.margherita)}× Margherita`);
+  if(Number(pizzas.salami)>0) parts.push(`${Number(pizzas.salami)}× Salami`);
+  if(Number(pizzas.nutella)>0) parts.push(`${Number(pizzas.nutella)}× Nutella`);
+  return parts.length?`<div class="muted" style="margin-top:6px">🍕 ${parts.join(' · ')}</div>`:'';
+}
+
 function renderOrderList(){
   const orders=getOrders();
   if(!orders.length) return '<p class="muted">Noch keine Aufträge angelegt.</p>';
@@ -457,6 +482,7 @@ function renderOrderList(){
       </div>
       <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
       <div style="margin-top:7px"><span class="payment-pill ${paymentClass(payment)}">Zahlung: ${escapeHtml(payment)}</span></div>
+      ${renderPizzaSummary(o.pizzas)}
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
@@ -474,6 +500,11 @@ function saveOrder(){
   const street=document.querySelector('#orderStreet').value.trim();
   const payment=document.querySelector('#orderPayment').value;
   const notes=document.querySelector('#orderNotes').value.trim();
+  const pizzas={
+    margherita:Number(document.querySelector('#orderPizzaMargherita').value||0),
+    salami:Number(document.querySelector('#orderPizzaSalami').value||0),
+    nutella:Number(document.querySelector('#orderPizzaNutella').value||0)
+  };
 
   if(!customer || !date || !time || !people || !location || !price){
     toast('Bitte alle Felder ausfüllen.');
@@ -493,6 +524,7 @@ function saveOrder(){
     street,
     payment,
     notes,
+    pizzas,
     status:'Anfrage'
   });
 
@@ -573,6 +605,21 @@ function openOrder(index){
         </label>
       </div>
 
+      <div class="card" style="margin-top:14px">
+        <h3>Pizza-Auswahl</h3>
+        <div class="formgrid">
+          <label>Margherita
+            <input id="editPizzaMargherita" type="number" min="0" value="${Number(o.pizzas?.margherita||0)}">
+          </label>
+          <label>Salami
+            <input id="editPizzaSalami" type="number" min="0" value="${Number(o.pizzas?.salami||0)}">
+          </label>
+          <label>Nutella-Pizza
+            <input id="editPizzaNutella" type="number" min="0" value="${Number(o.pizzas?.nutella||0)}">
+          </label>
+        </div>
+      </div>
+
       <label style="margin-top:12px">Notizen
         <textarea id="editNotes">${escapeHtml(o.notes||'')}</textarea>
       </label>
@@ -624,7 +671,12 @@ function updateOrder(index){
     email:document.querySelector('#editEmail').value.trim(),
     street:document.querySelector('#editStreet').value.trim(),
     payment:document.querySelector('#editPayment').value,
-    notes:document.querySelector('#editNotes').value.trim()
+    notes:document.querySelector('#editNotes').value.trim(),
+    pizzas:{
+      margherita:Number(document.querySelector('#editPizzaMargherita').value||0),
+      salami:Number(document.querySelector('#editPizzaSalami').value||0),
+      nutella:Number(document.querySelector('#editPizzaNutella').value||0)
+    }
   };
 
   if(!updated.customer || !updated.date || !updated.time || !updated.people || !updated.location || !updated.price){
