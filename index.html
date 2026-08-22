@@ -13,7 +13,7 @@ aside{background:#17191c;color:white;padding:22px 16px;position:sticky;top:0;hei
 nav button{display:block;width:100%;text-align:left;background:transparent;color:#ddd;padding:11px 12px;border-radius:10px;margin:3px 0}nav button:hover,nav button.active{background:#2a2d31;color:white}
 main{padding:28px;max-width:1280px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.top h1{margin:0;font-size:28px}.top p{margin:5px 0;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 8px #00000006}.metric .label{font-size:13px;color:var(--muted)}.metric .num{font-size:27px;font-weight:800;margin-top:6px}
-h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--ok)}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent2);font-size:12px;font-weight:700}.muted{color:var(--muted)}.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.item:hover{border-color:#c7cbd1}.item strong{display:block}.actions{display:flex;gap:8px;flex-wrap:wrap}
+h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--ok)}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent2);font-size:12px;font-weight:700}.muted{color:var(--muted)}.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.item:hover{border-color:#c7cbd1}.item strong{display:block}.order-item{cursor:pointer}.order-item:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}.order-editor{margin-top:16px}.actions{display:flex;gap:8px;flex-wrap:wrap}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
 .formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}
 .kpi{background:#fafafa;border-radius:12px;padding:12px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
@@ -122,7 +122,7 @@ pages.recipes=()=>shell('Rezepte','Teig, Pizza-Belag und Desserts getrennt kalku
 pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und verwalten.',`
 <div class="card">
   <h2>Aufträge</h2>
-  <p class="muted">Hier werden deine Catering-Aufträge verwaltet.</p>
+  <p class="muted">Tippe auf einen Auftrag, um ihn zu öffnen, zu bearbeiten oder zu löschen.</p>
 
   <div class="card">
     <h3>Neuen Auftrag anlegen</h3>
@@ -153,18 +153,19 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
       </label>
     </div>
 
-    <button class="btn" onclick="saveOrder()">Auftrag speichern</button>
+    <button class="btn" style="margin-top:14px" onclick="saveOrder()">Auftrag speichern</button>
   </div>
 
-  <div class="card">
+  <div class="card" style="margin-top:16px">
     <h3>Aufträge</h3>
-    <div id="orderList" class="muted">${(()=>{const orders=JSON.parse(localStorage.getItem('orders')||'[]');if(!orders.length)return 'Noch keine Aufträge angelegt.';return orders.map(o=>'<div class="item"><strong>'+(o.customer||'Ohne Namen')+'</strong><br>'+(o.date||'')+' · '+(o.time||'')+' · '+(o.people||'')+' Personen · '+(o.location||'')+' · '+(o.price||'')+' €</div>').join('')})()}</div>
+    <div id="orderList">${renderOrderList()}</div>
   </div>
+
+  <div id="orderEditorWrap"></div>
 </div>
 `);
- 
 
- pages.calc=()=>shell('Kalkulation','Vorkalkulation und frei wählbarer Verkaufspreis.',`<div class="grid"><div class="card metric"><div class="label">Warenkosten</div><div class="num">${money(285)}</div></div><div class="card metric"><div class="label">Arbeitskosten</div><div class="num">${money(300)}</div></div><div class="card metric"><div class="label">Fahrzeug</div><div class="num">${money(95)}</div></div><div class="card metric"><div class="label">Sonstiges/Reserve</div><div class="num">${money(40)}</div></div></div>
+pages.calc=()=>shell('Kalkulation','Vorkalkulation und frei wählbarer Verkaufspreis.',`<div class="grid"><div class="card metric"><div class="label">Warenkosten</div><div class="num">${money(285)}</div></div><div class="card metric"><div class="label">Arbeitskosten</div><div class="num">${money(300)}</div></div><div class="card metric"><div class="label">Fahrzeug</div><div class="num">${money(95)}</div></div><div class="card metric"><div class="label">Sonstiges/Reserve</div><div class="num">${money(40)}</div></div></div>
 <div class="grid2" style="margin-top:16px"><div class="card"><h2>Preisfinder</h2><div class="formgrid"><label>Pizzen<input id="cp" value="60" type="number"></label><label>Gewünschter Unternehmergewinn<input id="cg" value="400" type="number"></label><label>Geplanter Verkaufspreis<input id="cs" value="1400" type="number"></label><label>Arbeitszeit<input value="10 Std." disabled></label></div><div class="grid" style="margin-top:16px"><div class="kpi"><span class="muted">Kosten</span><br><span class="money">${money(720)}</span></div><div class="kpi"><span class="muted">Mindestpreis</span><br><span class="money">${money(1120)}</span></div><div class="kpi"><span class="muted">Gewinn</span><br><span class="money">${money(680)}</span></div><div class="kpi"><span class="muted">Gewinn/Pizza</span><br><span class="money">${money(11.33)}</span></div></div></div><div class="card"><h2>Preisspanne</h2><table><tr><th>Preis</th><th>Gewinn</th><th>€/Pizza</th></tr><tr><td>1.200 €</td><td>480 €</td><td>8,00 €</td></tr><tr><td><b>1.400 €</b></td><td><b>680 €</b></td><td><b>11,33 €</b></td></tr><tr><td>1.500 €</td><td>780 €</td><td>13,00 €</td></tr></table></div></div>`);
 
 const tasks=['Vorteig herstellen','Hauptteig kneten','Teig portionieren','Einkauf','Fahrt zum Einkauf','Auto beladen','Fahrt zum Kunden','Aufbau','Catering / Pizza backen','Abbau','Heimfahrt','Auto ausräumen','Reinigung','Sonstiges'];
@@ -182,6 +183,44 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
 
 
 
+function getOrders(){
+  try{
+    return JSON.parse(localStorage.getItem('orders')||'[]');
+  }catch(e){
+    return [];
+  }
+}
+
+function saveOrders(orders){
+  localStorage.setItem('orders',JSON.stringify(orders));
+}
+
+function escapeHtml(value){
+  return String(value??'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+
+function renderOrderList(){
+  const orders=getOrders();
+  if(!orders.length) return '<p class="muted">Noch keine Aufträge angelegt.</p>';
+
+  return orders.map((o,index)=>{
+    const status=o.status||'Anfrage';
+    return `<div class="item order-item" onclick="openOrder(${index})">
+      <div class="row">
+        <strong>${escapeHtml(o.customer||'Ohne Namen')}</strong>
+        <span class="pill">${escapeHtml(status)}</span>
+      </div>
+      <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
+      <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
+    </div>`;
+  }).join('');
+}
+
 function saveOrder(){
   const customer=document.querySelector('#orderCustomer').value.trim();
   const date=document.querySelector('#orderDate').value;
@@ -190,27 +229,127 @@ function saveOrder(){
   const location=document.querySelector('#orderLocation').value.trim();
   const price=document.querySelector('#orderPrice').value;
 
- if(!customer || !date || !time || !people || !location || !price){
+  if(!customer || !date || !time || !people || !location || !price){
     toast('Bitte alle Felder ausfüllen.');
     return;
   }
 
-  const orders=JSON.parse(localStorage.getItem('orders')||'[]');
-
+  const orders=getOrders();
   orders.push({
     customer,
     date,
     time,
     people,
     location,
-    price
+    price,
+    status:'Anfrage'
   });
 
-  localStorage.setItem('orders',JSON.stringify(orders));
-
+  saveOrders(orders);
   toast('Auftrag gespeichert.');
   render('orders');
- }
+}
+
+function openOrder(index){
+  const orders=getOrders();
+  const o=orders[index];
+  if(!o) return;
+
+  const wrap=document.getElementById('orderEditorWrap');
+  if(!wrap) return;
+
+  wrap.innerHTML=`
+    <div class="card order-editor">
+      <div class="row">
+        <h3>Auftrag bearbeiten</h3>
+        <span class="pill">${escapeHtml(o.status||'Anfrage')}</span>
+      </div>
+
+      <div class="formgrid">
+        <label>Kunde
+          <input id="editCustomer" value="${escapeHtml(o.customer||'')}">
+        </label>
+
+        <label>Status
+          <select id="editStatus">
+            ${['Anfrage','Bestätigt','Erledigt','Storniert'].map(s=>`<option ${s===(o.status||'Anfrage')?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </label>
+
+        <label>Datum
+          <input id="editDate" type="date" value="${escapeHtml(o.date||'')}">
+        </label>
+
+        <label>Uhrzeit
+          <input id="editTime" type="time" value="${escapeHtml(o.time||'')}">
+        </label>
+
+        <label>Personen
+          <input id="editPeople" type="number" value="${escapeHtml(o.people||'')}">
+        </label>
+
+        <label>Ort
+          <input id="editLocation" value="${escapeHtml(o.location||'')}">
+        </label>
+
+        <label>Verkaufspreis €
+          <input id="editPrice" type="number" step="0.01" value="${escapeHtml(o.price||'')}">
+        </label>
+      </div>
+
+      <div class="actions" style="margin-top:14px">
+        <button class="btn ok" onclick="updateOrder(${index})">Änderungen speichern</button>
+        <button class="btn secondary" onclick="closeOrderEditor()">Schließen</button>
+        <button class="btn secondary" onclick="deleteOrder(${index})">Auftrag löschen</button>
+      </div>
+    </div>`;
+
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function updateOrder(index){
+  const orders=getOrders();
+  if(!orders[index]) return;
+
+  const updated={
+    customer:document.querySelector('#editCustomer').value.trim(),
+    status:document.querySelector('#editStatus').value,
+    date:document.querySelector('#editDate').value,
+    time:document.querySelector('#editTime').value,
+    people:document.querySelector('#editPeople').value,
+    location:document.querySelector('#editLocation').value.trim(),
+    price:document.querySelector('#editPrice').value
+  };
+
+  if(!updated.customer || !updated.date || !updated.time || !updated.people || !updated.location || !updated.price){
+    toast('Bitte alle Felder ausfüllen.');
+    return;
+  }
+
+  orders[index]={...orders[index],...updated};
+  saveOrders(orders);
+  toast('Auftrag aktualisiert.');
+  render('orders');
+}
+
+function deleteOrder(index){
+  const orders=getOrders();
+  const o=orders[index];
+  if(!o) return;
+
+  if(!confirm(`Auftrag "${o.customer||'Ohne Namen'}" wirklich löschen?`)) return;
+
+  orders.splice(index,1);
+  saveOrders(orders);
+  toast('Auftrag gelöscht.');
+  render('orders');
+}
+
+function closeOrderEditor(){
+  const wrap=document.getElementById('orderEditorWrap');
+  if(wrap) wrap.innerHTML='';
+}
+
 function render(page){
   document.querySelectorAll('#nav button').forEach(b=>{
     b.classList.toggle('active',b.dataset.page===page);
