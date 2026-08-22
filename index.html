@@ -254,7 +254,15 @@ pages.shopping=()=>shell('Einkauf','Einkaufsliste automatisch aus den Pizza-Meng
 </div>
 `);
 
-pages.calendar=()=>shell('Kalender','Alle Caterings und Vorbereitungsschritte auf einen Blick.',`<div class="card"><h2>September 2026</h2><div class="list"><div class="item"><strong>12.09. · 18:00 – Müller GmbH</strong><span class="muted">60 Personen · Göttingen · bestätigt</span><div class="actions"><button class="btn secondary" onclick="toast('Termin geteilt')">📤 Teilen</button><button class="btn secondary" onclick="toast('Route geöffnet')">📍 Route</button></div></div><div class="item"><strong>19.09. · 17:30 – Schmidt</strong><span class="muted">80 Personen · Northeim · Angebot</span></div></div></div>`);
+pages.calendar=()=>shell('Kalender','Gespeicherte Catering-Aufträge nach Datum sortiert.',`
+<div class="card">
+  <div class="row">
+    <h2>Kalender</h2>
+    <span class="pill">${getOrders().length} Aufträge</span>
+  </div>
+  <div id="calendarList" style="margin-top:14px">${renderCalendarList()}</div>
+</div>
+`);
 
 pages.docs=()=>shell('Angebote & Rechnungen','Aus Aufträgen erzeugte Kundendokumente – intern mit Vorschau.',`<div class="grid2"><div class="card"><h2>Dokument erstellen</h2><div class="formgrid"><label>Dokumenttyp<select><option>Angebot</option><option>Anzahlungsrechnung</option><option>Schlussrechnung</option></select></label><label>Nummer<input value="2026-0042"></label><label>Auftrag<input value="Müller GmbH – 60 Pizzen"></label><label>Zahlungsziel<input value="14 Tage"></label></div><div class="actions" style="margin-top:14px"><button class="btn" onclick="toast('PDF-Vorschau erstellt')">📄 PDF-Vorschau</button><button class="btn secondary" onclick="toast('Druckdialog geöffnet')">🖨️ Drucken</button></div></div><div class="card"><h2>Logo & Firmendaten</h2><div class="item"><strong>Schneiders Catering</strong><span class="muted">Logo: Platzhalter · später hochladen</span><br><span class="muted">Website: baeckerei-schneider.de</span></div></div></div>`);
 
@@ -509,6 +517,68 @@ function refreshShoppingList(){
   if(!wrap) return;
   const index=getSelectedShoppingOrderIndex();
   wrap.innerHTML=renderShoppingList(index);
+}
+
+function formatGermanDate(dateStr){
+  if(!dateStr) return '';
+  const d=new Date(dateStr+'T00:00:00');
+  if(Number.isNaN(d.getTime())) return escapeHtml(dateStr);
+  return new Intl.DateTimeFormat('de-DE',{
+    weekday:'short',
+    day:'2-digit',
+    month:'2-digit',
+    year:'numeric'
+  }).format(d);
+}
+
+function calendarStatusClass(status){
+  return statusClass(status||'Anfrage');
+}
+
+function renderCalendarList(){
+  const orders=getOrders()
+    .map((o,index)=>({...o,_index:index}))
+    .sort((a,b)=>{
+      const ad=`${a.date||'9999-12-31'}T${a.time||'23:59'}`;
+      const bd=`${b.date||'9999-12-31'}T${b.time||'23:59'}`;
+      return ad.localeCompare(bd);
+    });
+
+  if(!orders.length){
+    return '<p class="muted">Noch keine Aufträge vorhanden.</p>';
+  }
+
+  const groups={};
+  orders.forEach(o=>{
+    const month=(o.date||'Ohne Datum').slice(0,7) || 'Ohne Datum';
+    if(!groups[month]) groups[month]=[];
+    groups[month].push(o);
+  });
+
+  return Object.entries(groups).map(([month,items])=>{
+    let title='Ohne Datum';
+    if(month!=='Ohne Datum'){
+      const [y,m]=month.split('-').map(Number);
+      title=new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(new Date(y,m-1,1));
+    }
+
+    return `<div style="margin-bottom:18px">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="list">
+        ${items.map(o=>`
+          <div class="item order-item ${orderPaymentClass(o.payment||'Offen')}" onclick="go('orders');setTimeout(()=>openOrder(${o._index}),0)">
+            <div class="row">
+              <strong>${escapeHtml(o.customer||'Ohne Namen')}</strong>
+              <span class="status-pill ${calendarStatusClass(o.status)}">${escapeHtml(o.status||'Anfrage')}</span>
+            </div>
+            <div class="muted">${formatGermanDate(o.date)}${o.time?` · ${escapeHtml(o.time)} Uhr`:''}</div>
+            <div class="muted">${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')}</div>
+            <div style="margin-top:7px"><span class="payment-pill ${paymentClass(o.payment||'Offen')}">Zahlung: ${escapeHtml(o.payment||'Offen')}</span></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function getOrders(){
