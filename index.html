@@ -145,7 +145,14 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
     <h3>Neuen Auftrag anlegen</h3>
 
     <div class="formgrid">
-      <label>Kunde
+      <label>Kunde auswählen
+        <select id="orderCustomerSelect" onchange="applyCustomerToOrder(this.value)">
+          <option value="">— Kunde wählen —</option>
+          ${renderCustomerOptions()}
+        </select>
+      </label>
+
+      <label>Kunde / Firma
         <input id="orderCustomer" placeholder="z. B. Müller GmbH">
       </label>
 
@@ -223,6 +230,32 @@ pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennz
 pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Benachrichtigungen und Synchronisierung.',`<div class="grid2"><div class="card"><h2>Firma</h2><div class="formgrid"><label>Firmenname<input value="Schneiders Catering"></label><label>Website<input value="https://www.baeckerei-schneider.de"></label><label>Logo<input type="file"></label><label>Heimatadresse<input value="wird hinterlegt"></label></div></div><div class="card"><h2>Benutzer</h2><div class="list"><div class="item"><strong>Du · Administrator</strong><span class="muted">Vollzugriff</span></div><div class="item"><strong>Ehefrau · Familienzugang</strong><span class="muted">Kalender & Aufträge</span></div><div class="item"><strong>Helfer · Mitarbeiter</strong><span class="muted">zugewiesene Aufgaben</span></div></div></div><div class="card"><h2>Fahrzeuge</h2><div class="item"><strong>T6</strong><span class="muted">Verbrauch, Spritpreis und Vollkosten/km werden später hinterlegt.</span></div><button class="btn secondary" style="margin-top:12px" onclick="toast('Fahrzeug hinzugefügt – Demo')">+ Fahrzeug</button></div><div class="card"><h2>Synchronisierung & Handy</h2><p class="muted">Die echte Version wird als responsive, installierbare Web-App aufgebaut: gleiche Daten auf PC und Handy, Offline-Modus und automatische Cloud-Synchronisierung.</p><div class="actions"><span class="pill">Mobile-first</span><span class="pill">Offline</span><span class="pill">Installierbar</span></div></div></div>`);
 
 
+
+function renderCustomerOptions(){
+  const customers=getCustomers();
+  return customers.map((c,index)=>`<option value="${index}">${escapeHtml(c.name||'Ohne Namen')}</option>`).join('');
+}
+
+function applyCustomerToOrder(index){
+  if(index==='') return;
+  const customers=getCustomers();
+  const c=customers[Number(index)];
+  if(!c) return;
+
+  const customer=document.getElementById('orderCustomer');
+  const phone=document.getElementById('orderPhone');
+  const email=document.getElementById('orderEmail');
+  const street=document.getElementById('orderStreet');
+  const location=document.getElementById('orderLocation');
+
+  if(customer) customer.value=c.name||'';
+  if(phone) phone.value=c.phone||'';
+  if(email) email.value=c.email||'';
+  if(street) street.value=c.street||'';
+  if(location && !location.value) location.value=c.city||'';
+
+  toast('Kundendaten übernommen.');
+}
 
 function getCustomers(){
   try{
@@ -484,7 +517,14 @@ function openOrder(index){
       </div>
 
       <div class="formgrid">
-        <label>Kunde
+        <label>Kunde auswählen
+          <select id="editCustomerSelect" onchange="applyCustomerToEditOrder(this.value)">
+            <option value="">— Kunde wählen —</option>
+            ${renderCustomerOptions()}
+          </select>
+        </label>
+
+        <label>Kunde / Firma
           <input id="editCustomer" value="${escapeHtml(o.customer||'')}">
         </label>
 
@@ -545,6 +585,27 @@ function openOrder(index){
     </div>`;
 
   wrap.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function applyCustomerToEditOrder(index){
+  if(index==='') return;
+  const customers=getCustomers();
+  const c=customers[Number(index)];
+  if(!c) return;
+
+  const customer=document.getElementById('editCustomer');
+  const phone=document.getElementById('editPhone');
+  const email=document.getElementById('editEmail');
+  const street=document.getElementById('editStreet');
+  const location=document.getElementById('editLocation');
+
+  if(customer) customer.value=c.name||'';
+  if(phone) phone.value=c.phone||'';
+  if(email) email.value=c.email||'';
+  if(street) street.value=c.street||'';
+  if(location && !location.value) location.value=c.city||'';
+
+  toast('Kundendaten übernommen.');
 }
 
 function updateOrder(index){
