@@ -235,7 +235,24 @@ pages.calc=()=>shell('Kalkulation','Vorkalkulation und frei wählbarer Verkaufsp
 const tasks=['Vorteig herstellen','Hauptteig kneten','Teig portionieren','Einkauf','Fahrt zum Einkauf','Auto beladen','Fahrt zum Kunden','Aufbau','Catering / Pizza backen','Abbau','Heimfahrt','Auto ausräumen','Reinigung','Sonstiges'];
 pages.timer=()=>shell('Zeiterfassung','Jede Tätigkeit einzeln starten und stoppen; Fahrten können später GPS + Kilometer erfassen.',`<div class="grid2"><div class="card"><h2>Neue Tätigkeit</h2><select id="task"><option>${tasks.join('</option><option>')}</option></select><div class="actions" style="margin-top:12px"><button class="btn ok" onclick="startTimer()">▶ Start</button><button class="btn secondary" onclick="stopTimer()">■ Stopp</button></div><div class="metric-card" style="margin-top:16px"><div class="label muted">Aktuelle Zeit</div><div class="num" id="clock">00:00:00</div></div><p id="timerMsg" class="muted">Noch keine Tätigkeit aktiv.</p></div><div class="card"><h2>Heutige Zeiten</h2><table><tr><th>Tätigkeit</th><th>Plan</th><th>Ist</th></tr><tr><td>Vorteig</td><td>20 Min.</td><td>18 Min.</td></tr><tr><td>Auto beladen</td><td>60 Min.</td><td>47 Min.</td></tr><tr><td>Fahrt zum Kunden</td><td>43 Min.</td><td>51 Min.</td></tr><tr><td>Catering</td><td>3:30 Std.</td><td>—</td></tr></table><div class="kpi" style="margin-top:14px"><span class="muted">Gesamt bisher</span><br><b>1 Std. 56 Min.</b></div></div></div>`);
 
-pages.shopping=()=>shell('Einkauf','Geplante Mengen abhaken und tatsächliche Preise erfassen.',`<div class="card"><div class="row"><h2>Müller · 60 Pizzen</h2><span class="pill">7/10 erledigt</span></div><table><tr><th></th><th>Rohstoff</th><th>Menge</th><th>Geplant</th><th>Tatsächlich</th></tr>${[['Fior di Latte','3 Pack.','28,50 €','29,97 €'],['Salami','5 Pack.','44,50 €','49,95 €'],['Tomaten','2 Dosen','6,40 €','6,58 €'],['Parmesan','1 Pack.','8,50 €','8,50 €'],['Rucola','2 Pack.','5,00 €','4,98 €']].map(x=>`<tr><td>☐</td><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join('')}</table><div class="actions" style="margin-top:15px"><button class="btn" onclick="toast('Kassenbon-Kamera wäre hier eingebunden')">📷 Bon fotografieren</button><button class="btn secondary" onclick="toast('Einkauf abgeschlossen')">Einkauf abschließen</button></div></div>`);
+pages.shopping=()=>shell('Einkauf','Einkaufsliste automatisch aus den Pizza-Mengen eines Auftrags erzeugen.',`
+<div class="card">
+  <div class="row">
+    <h2>Einkaufsliste</h2>
+    <span class="pill">aus Auftrag</span>
+  </div>
+
+  <label>Auftrag auswählen
+    <select id="shoppingOrderSelect" onchange="refreshShoppingList()">
+      ${renderShoppingOrderOptions()}
+    </select>
+  </label>
+
+  <div id="shoppingListWrap" style="margin-top:14px">
+    ${renderShoppingListForSelected()}
+  </div>
+</div>
+`);
 
 pages.calendar=()=>shell('Kalender','Alle Caterings und Vorbereitungsschritte auf einen Blick.',`<div class="card"><h2>September 2026</h2><div class="list"><div class="item"><strong>12.09. · 18:00 – Müller GmbH</strong><span class="muted">60 Personen · Göttingen · bestätigt</span><div class="actions"><button class="btn secondary" onclick="toast('Termin geteilt')">📤 Teilen</button><button class="btn secondary" onclick="toast('Route geöffnet')">📍 Route</button></div></div><div class="item"><strong>19.09. · 17:30 – Schmidt</strong><span class="muted">80 Personen · Northeim · Angebot</span></div></div></div>`);
 
@@ -415,6 +432,83 @@ function deleteCustomer(index){
 function closeCustomerForm(){
   const wrap=document.getElementById('customerFormWrap');
   if(wrap) wrap.innerHTML='';
+}
+
+function renderShoppingOrderOptions(){
+  const orders=getOrders();
+  if(!orders.length) return '<option value="">Noch keine Aufträge</option>';
+
+  return orders.map((o,index)=>{
+    const pizzaCount=calcOrderRecipe(o.pizzas||{}).totalPizzas;
+    const label=`${o.customer||'Ohne Namen'} · ${o.date||''}${pizzaCount?` · ${pizzaCount} Pizzen`:''}`;
+    return `<option value="${index}">${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function getSelectedShoppingOrderIndex(){
+  const el=document.getElementById('shoppingOrderSelect');
+  if(!el) return getOrders().length ? 0 : -1;
+  return el.value==='' ? -1 : Number(el.value);
+}
+
+function shoppingCheckKey(orderIndex, ingredient){
+  return `shopping_${orderIndex}_${ingredient}`;
+}
+
+function toggleShoppingItem(orderIndex, ingredient, checked){
+  localStorage.setItem(shoppingCheckKey(orderIndex,ingredient),checked?'1':'0');
+  refreshShoppingList();
+}
+
+function renderShoppingList(orderIndex=0){
+  const orders=getOrders();
+  const o=orders[orderIndex];
+  if(!o) return '<p class="muted">Kein Auftrag ausgewählt.</p>';
+
+  const calc=calcOrderRecipe(o.pizzas||{});
+  if(!calc.totalPizzas) return '<p class="muted">Dieser Auftrag enthält noch keine Pizza-Mengen.</p>';
+
+  const ingredients=Object.entries(calc.ingredients);
+  const done=ingredients.filter(([name])=>localStorage.getItem(shoppingCheckKey(orderIndex,name))==='1').length;
+
+  return `
+    <div class="row">
+      <div>
+        <h3 style="margin-bottom:4px">${escapeHtml(o.customer||'Ohne Namen')}</h3>
+        <div class="muted">${escapeHtml(o.date||'')} · ${calc.totalPizzas} Pizzen</div>
+      </div>
+      <span class="pill">${done}/${ingredients.length} erledigt</span>
+    </div>
+
+    <div class="list" style="margin-top:14px">
+      ${ingredients.map(([name,grams])=>{
+        const checked=localStorage.getItem(shoppingCheckKey(orderIndex,name))==='1';
+        return `<label class="item" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+          <input type="checkbox" style="width:auto;margin:0" ${checked?'checked':''}
+            onchange="toggleShoppingItem(${orderIndex},'${escapeHtml(name)}',this.checked)">
+          <span style="flex:1">
+            <strong style="${checked?'text-decoration:line-through;opacity:.65':''}">${escapeHtml(name)}</strong>
+            <span class="muted">${formatIngredientAmount(name,grams)}</span>
+          </span>
+        </label>`;
+      }).join('')}
+    </div>
+
+    <div class="calc-total">Rezept-Warenkosten: ${money(calc.totalCost)}</div>
+  `;
+}
+
+function renderShoppingListForSelected(){
+  const orders=getOrders();
+  if(!orders.length) return '<p class="muted">Noch keine Aufträge vorhanden.</p>';
+  return renderShoppingList(0);
+}
+
+function refreshShoppingList(){
+  const wrap=document.getElementById('shoppingListWrap');
+  if(!wrap) return;
+  const index=getSelectedShoppingOrderIndex();
+  wrap.innerHTML=renderShoppingList(index);
 }
 
 function getOrders(){
