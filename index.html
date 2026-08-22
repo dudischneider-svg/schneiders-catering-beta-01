@@ -194,7 +194,7 @@ pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Bena
   const price=document.querySelector('#orderPrice').value;
 
  if(!customer || !date || !time || !people || !location || !price){
-    toast('Bitte Kunde, Datum und Uhrzeit eingeben.');
+    toast('Bitte alle Felder ausfüllen.');
     return;
   }
 
