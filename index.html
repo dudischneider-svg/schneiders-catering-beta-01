@@ -17,6 +17,14 @@ h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
 .formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select,textarea{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}textarea{min-height:96px;resize:vertical}
 .kpi{background:#fafafa;border-radius:12px;padding:12px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
+.status-pill,.payment-pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.status-anfrage,.payment-offen{background:#fee2e2;color:#991b1b}
+.status-bestaetigt,.status-erledigt,.payment-bezahlt{background:#dcfce7;color:#166534}
+.status-storniert{background:#e5e7eb;color:#4b5563}
+.payment-anzahlung{background:#ffedd5;color:#9a3412}
+.order-payment-open{border-left:6px solid #dc2626;background:#fff7f7}
+.order-payment-partial{border-left:6px solid #f59e0b;background:#fffaf0}
+.order-payment-paid{border-left:6px solid #16a34a;background:#f5fff7}
 .hidden{display:none!important}.toast{position:fixed;right:20px;bottom:20px;background:#17191c;color:white;padding:12px 16px;border-radius:10px;display:none}
 @media(max-width:850px){
   *{max-width:100%}
@@ -228,19 +236,41 @@ function escapeHtml(value){
     .replaceAll("'","&#039;");
 }
 
+function statusClass(status){
+  return {
+    'Anfrage':'status-anfrage',
+    'Bestätigt':'status-bestaetigt',
+    'Erledigt':'status-erledigt',
+    'Storniert':'status-storniert'
+  }[status]||'status-anfrage';
+}
+
+function paymentClass(payment){
+  return {
+    'Offen':'payment-offen',
+    'Anzahlung':'payment-anzahlung',
+    'Bezahlt':'payment-bezahlt'
+  }[payment]||'payment-offen';
+}
+
+function orderPaymentClass(payment){
+  return payment==='Bezahlt'?'order-payment-paid':payment==='Anzahlung'?'order-payment-partial':'order-payment-open';
+}
+
 function renderOrderList(){
   const orders=getOrders();
   if(!orders.length) return '<p class="muted">Noch keine Aufträge angelegt.</p>';
 
   return orders.map((o,index)=>{
     const status=o.status||'Anfrage';
-    return `<div class="item order-item" onclick="openOrder(${index})">
+    const payment=o.payment||'Offen';
+    return `<div class="item order-item ${orderPaymentClass(payment)}" onclick="openOrder(${index})">
       <div class="row">
         <strong>${escapeHtml(o.customer||'Ohne Namen')}</strong>
-        <span class="pill">${escapeHtml(status)}</span>
+        <span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span>
       </div>
       <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
-      <div class="muted">Zahlung: ${escapeHtml(o.payment||'Offen')}</div>
+      <div style="margin-top:7px"><span class="payment-pill ${paymentClass(payment)}">Zahlung: ${escapeHtml(payment)}</span></div>
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
@@ -297,7 +327,7 @@ function openOrder(index){
     <div class="card order-editor">
       <div class="row">
         <h3>Auftrag bearbeiten</h3>
-        <span class="pill">${escapeHtml(o.status||'Anfrage')}</span>
+        <span class="status-pill ${statusClass(o.status||'Anfrage')}">${escapeHtml(o.status||'Anfrage')}</span>
       </div>
 
       <div class="formgrid">
