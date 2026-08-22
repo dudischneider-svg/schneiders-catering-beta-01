@@ -161,6 +161,14 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
         <input id="orderPrice" type="number" step="0.01">
       </label>
 
+      <label>Arbeitsstunden gesamt
+        <input id="orderHours" type="number" min="0" step="0.25" value="0">
+      </label>
+
+      <label>Fahrtstrecke gesamt km
+        <input id="orderKm" type="number" min="0" step="1" value="0">
+      </label>
+
       <label>Telefon
         <input id="orderPhone" type="tel" placeholder="Telefonnummer">
       </label>
@@ -246,9 +254,45 @@ pages.docs=()=>shell('Angebote & Rechnungen','Aus Aufträgen erzeugte Kundendoku
 
 pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennzahlen.',`<div class="grid"><div class="card metric"><div class="label">Caterings 2026</div><div class="num">24</div></div><div class="card metric"><div class="label">Umsatz</div><div class="num">31.500 €</div></div><div class="card metric"><div class="label">Unternehmergewinn</div><div class="num">12.800 €</div></div><div class="card metric"><div class="label">Gewinn/Std.</div><div class="num">42,70 €</div></div></div><div class="card" style="margin-top:16px"><h2>Beispielauswertung</h2><table><tr><th>Zeitraum</th><th>Aufträge</th><th>Umsatz</th><th>Kosten</th><th>Gewinn</th></tr><tr><td>August</td><td>8</td><td>10.200 €</td><td>6.100 €</td><td>4.100 €</td></tr><tr><td>September</td><td>6</td><td>8.400 €</td><td>5.100 €</td><td>3.300 €</td></tr></table></div>`);
 
-pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Benachrichtigungen und Synchronisierung.',`<div class="grid2"><div class="card"><h2>Firma</h2><div class="formgrid"><label>Firmenname<input value="Schneiders Catering"></label><label>Website<input value="https://www.baeckerei-schneider.de"></label><label>Logo<input type="file"></label><label>Heimatadresse<input value="wird hinterlegt"></label></div></div><div class="card"><h2>Benutzer</h2><div class="list"><div class="item"><strong>Du · Administrator</strong><span class="muted">Vollzugriff</span></div><div class="item"><strong>Ehefrau · Familienzugang</strong><span class="muted">Kalender & Aufträge</span></div><div class="item"><strong>Helfer · Mitarbeiter</strong><span class="muted">zugewiesene Aufgaben</span></div></div></div><div class="card"><h2>Fahrzeuge</h2><div class="item"><strong>T6</strong><span class="muted">Verbrauch, Spritpreis und Vollkosten/km werden später hinterlegt.</span></div><button class="btn secondary" style="margin-top:12px" onclick="toast('Fahrzeug hinzugefügt – Demo')">+ Fahrzeug</button></div><div class="card"><h2>Synchronisierung & Handy</h2><p class="muted">Die echte Version wird als responsive, installierbare Web-App aufgebaut: gleiche Daten auf PC und Handy, Offline-Modus und automatische Cloud-Synchronisierung.</p><div class="actions"><span class="pill">Mobile-first</span><span class="pill">Offline</span><span class="pill">Installierbar</span></div></div></div>`);
+pages.settings=()=>shell('Einstellungen','Firmendaten sowie Kosten für Arbeit und Fahrzeug.',`
+<div class="grid2">
+  <div class="card">
+    <h2>Kalkulationswerte</h2>
+    <div class="formgrid">
+      <label>Arbeitskosten pro Stunde €
+        <input id="settingHourlyRate" type="number" step="0.01" value="${getCostSettings().hourlyRate}">
+      </label>
+      <label>Fahrzeugkosten pro km €
+        <input id="settingKmRate" type="number" step="0.01" value="${getCostSettings().kmRate}">
+      </label>
+    </div>
+    <button class="btn ok" style="margin-top:14px" onclick="saveCostSettingsFromForm()">Speichern</button>
+  </div>
 
+  <div class="card">
+    <h2>Hinweis</h2>
+    <p class="muted">Diese Werte werden in der Auftragskalkulation verwendet. Du kannst sie jederzeit ändern.</p>
+  </div>
+</div>
+`);
 
+function getCostSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem('costSettings')||'null');
+    if(s) return {
+      hourlyRate:Number(s.hourlyRate||30),
+      kmRate:Number(s.kmRate||0.65)
+    };
+  }catch(e){}
+  return {hourlyRate:30,kmRate:0.65};
+}
+
+function saveCostSettingsFromForm(){
+  const hourlyRate=Number(document.getElementById('settingHourlyRate').value||0);
+  const kmRate=Number(document.getElementById('settingKmRate').value||0);
+  localStorage.setItem('costSettings',JSON.stringify({hourlyRate,kmRate}));
+  toast('Kalkulationswerte gespeichert.');
+}
 
 function getIngredients(){
   try{
@@ -1036,6 +1080,7 @@ function renderDashboard(){
       <div class="list">
         <div class="item"><strong>Zahlung</strong><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></div>
         <div class="item"><strong>Warenkosten Rezepte</strong><span class="muted">${money(calc.totalCost)}</span></div>
+        <div class="item"><strong>Voraussichtlicher Gewinn</strong><span class="muted">${money(Number(o.price||0)-calcShoppingPurchaseTotal(o)-(Number(o.hours||0)*getCostSettings().hourlyRate)-(Number(o.km||0)*getCostSettings().kmRate))}</span></div>
         <div class="item"><strong>Telefon</strong><span class="muted">${escapeHtml(o.phone||'—')}</span></div>
         <div class="item"><strong>E-Mail</strong><span class="muted">${escapeHtml(o.email||'—')}</span></div>
       </div>
@@ -1273,6 +1318,8 @@ function saveOrder(){
   const people=document.querySelector('#orderPeople').value;
   const location=document.querySelector('#orderLocation').value.trim();
   const price=document.querySelector('#orderPrice').value;
+  const hours=Number(document.querySelector('#orderHours').value||0);
+  const km=Number(document.querySelector('#orderKm').value||0);
   const phone=document.querySelector('#orderPhone').value.trim();
   const email=document.querySelector('#orderEmail').value.trim();
   const street=document.querySelector('#orderStreet').value.trim();
@@ -1293,6 +1340,8 @@ function saveOrder(){
     people,
     location,
     price,
+    hours,
+    km,
     phone,
     email,
     street,
@@ -1312,16 +1361,20 @@ function renderOrderMargin(order){
   const calc=calcOrderRecipeFromItems(items);
   const revenue=Number(order?.price||0);
   const purchase=calcShoppingPurchaseTotal(order);
-  const contribution=revenue-purchase;
+  const settings=getCostSettings();
+  const labor=Number(order?.hours||0)*settings.hourlyRate;
+  const vehicle=Number(order?.km||0)*settings.kmRate;
+  const profit=revenue-purchase-labor-vehicle;
 
   if(!revenue && !calc.totalPizzas) return '';
 
   return `<div class="card" style="margin-top:12px">
-    <h3>Auftragsübersicht</h3>
+    <h3>Auftragskalkulation</h3>
     <div class="row"><span>Verkaufspreis</span><strong>${money(revenue)}</strong></div>
-    <div class="row" style="margin-top:7px"><span>Verbrauchskosten Zutaten</span><strong>${money(calc.totalCost)}</strong></div>
     <div class="row" style="margin-top:7px"><span>Einkauf volle Packungen</span><strong>${money(purchase)}</strong></div>
-    <div class="row" style="margin-top:9px"><span>Übrig vor Arbeits-/Fahrtkosten</span><strong>${money(contribution)}</strong></div>
+    <div class="row" style="margin-top:7px"><span>Arbeitskosten (${Number(order?.hours||0)} Std. × ${money(settings.hourlyRate)})</span><strong>${money(labor)}</strong></div>
+    <div class="row" style="margin-top:7px"><span>Fahrzeug (${Number(order?.km||0)} km × ${money(settings.kmRate)})</span><strong>${money(vehicle)}</strong></div>
+    <div class="row" style="margin-top:10px"><span><b>Voraussichtlicher Gewinn</b></span><strong>${money(profit)}</strong></div>
   </div>`;
 }
 
@@ -1376,6 +1429,14 @@ function openOrder(index){
 
         <label>Verkaufspreis €
           <input id="editPrice" type="number" step="0.01" value="${escapeHtml(o.price||'')}">
+        </label>
+
+        <label>Arbeitsstunden gesamt
+          <input id="editHours" type="number" min="0" step="0.25" value="${Number(o.hours||0)}">
+        </label>
+
+        <label>Fahrtstrecke gesamt km
+          <input id="editKm" type="number" min="0" step="1" value="${Number(o.km||0)}">
         </label>
 
         <label>Telefon
@@ -1454,6 +1515,8 @@ function updateOrder(index){
     people:document.querySelector('#editPeople').value,
     location:document.querySelector('#editLocation').value.trim(),
     price:document.querySelector('#editPrice').value,
+    hours:Number(document.querySelector('#editHours').value||0),
+    km:Number(document.querySelector('#editKm').value||0),
     phone:document.querySelector('#editPhone').value.trim(),
     email:document.querySelector('#editEmail').value.trim(),
     street:document.querySelector('#editStreet').value.trim(),
