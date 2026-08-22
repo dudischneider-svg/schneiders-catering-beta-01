@@ -16,7 +16,7 @@ main{padding:28px;max-width:1280px;width:100%;margin:auto}.top{display:flex;just
 h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--ok)}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent2);font-size:12px;font-weight:700}.muted{color:var(--muted)}.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.item:hover{border-color:#c7cbd1}.item strong{display:block}.order-item{cursor:pointer}.order-item:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}.order-editor{margin-top:16px}.actions{display:flex;gap:8px;flex-wrap:wrap}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
 .formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select,textarea{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}textarea{min-height:96px;resize:vertical}
-.kpi{background:#fafafa;border-radius:12px;padding:12px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
+.kpi{background:#fafafa;border-radius:12px;padding:12px}.calc-summary{margin-top:14px}.calc-summary table{margin-top:8px}.calc-total{font-size:18px;font-weight:800;margin-top:10px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
 .status-pill,.payment-pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}
 .status-anfrage,.payment-offen{background:#fee2e2;color:#991b1b}
 .status-bestaetigt,.status-erledigt,.payment-bezahlt{background:#dcfce7;color:#166534}
@@ -201,16 +201,16 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
       <h3>Pizza-Auswahl</h3>
       <div class="formgrid">
         <label>Margherita
-          <input id="orderPizzaMargherita" type="number" min="0" value="0">
+          <input id="orderPizzaMargherita" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
         </label>
         <label>Salami
-          <input id="orderPizzaSalami" type="number" min="0" value="0">
+          <input id="orderPizzaSalami" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
         </label>
         <label>Nutella-Pizza
-          <input id="orderPizzaNutella" type="number" min="0" value="0">
+          <input id="orderPizzaNutella" type="number" min="0" value="0" oninput="refreshNewOrderCalc()">
         </label>
       </div>
-      <p class="muted" style="margin-bottom:0">Die Mengen werden mit dem Auftrag gespeichert. Einkauf und Kosten verknüpfen wir im nächsten Schritt.</p>
+      <div id="newOrderCalc" class="calc-summary">${renderOrderCalcFromInputs()}</div>
     </div>
 
     <label style="margin-top:12px">Notizen
@@ -459,6 +459,108 @@ function orderPaymentClass(payment){
   return payment==='Bezahlt'?'order-payment-paid':payment==='Anzahlung'?'order-payment-partial':'order-payment-open';
 }
 
+const pizzaRecipes={
+  margherita:{
+    name:'Margherita',
+    cost:1.80,
+    ingredients:{'Pizzateig':300,'Tomatensauce':80,'Fior di Latte':90,'Parmesan':5}
+  },
+  salami:{
+    name:'Salami',
+    cost:2.29,
+    ingredients:{'Pizzateig':300,'Tomatensauce':80,'Fior di Latte':90,'Salami':25,'Parmesan':5}
+  },
+  nutella:{
+    name:'Nutella-Pizza',
+    cost:2.46,
+    ingredients:{'Pizzateig':300,'Nutella':100,'Erdbeeren':40,'Pudding':50}
+  }
+};
+
+function calcOrderRecipe(pizzas={}){
+  const ingredients={};
+  let totalPizzas=0;
+  let totalCost=0;
+
+  Object.entries(pizzaRecipes).forEach(([key,recipe])=>{
+    const count=Number(pizzas[key]||0);
+    if(count<=0) return;
+
+    totalPizzas+=count;
+    totalCost+=count*recipe.cost;
+
+    Object.entries(recipe.ingredients).forEach(([name,grams])=>{
+      ingredients[name]=(ingredients[name]||0)+(grams*count);
+    });
+  });
+
+  return {ingredients,totalPizzas,totalCost};
+}
+
+function formatIngredientAmount(name,grams){
+  if(name==='Pizzateig') return `${(grams/1000).toFixed(2).replace('.',',')} kg`;
+  if(grams>=1000) return `${(grams/1000).toFixed(2).replace('.',',')} kg`;
+  return `${Math.round(grams)} g`;
+}
+
+function renderOrderCalc(pizzas={}){
+  const calc=calcOrderRecipe(pizzas);
+
+  if(!calc.totalPizzas){
+    return '<p class="muted">Noch keine Pizza-Mengen eingetragen.</p>';
+  }
+
+  const rows=Object.entries(calc.ingredients)
+    .map(([name,grams])=>`<tr><td>${escapeHtml(name)}</td><td>${formatIngredientAmount(name,grams)}</td></tr>`)
+    .join('');
+
+  return `<div class="card" style="margin-top:12px">
+    <h3>Automatische Mengen & Warenkosten</h3>
+    <div class="muted">${calc.totalPizzas} Pizzen gesamt</div>
+    <table>
+      <tr><th>Zutat</th><th>Benötigte Menge</th></tr>
+      ${rows}
+    </table>
+    <div class="calc-total">Warenkosten Pizza-Rezepte: ${money(calc.totalCost)}</div>
+  </div>`;
+}
+
+function renderCompactCostSummary(pizzas={}){
+  const calc=calcOrderRecipe(pizzas);
+  if(!calc.totalPizzas) return '';
+  return `<div class="muted" style="margin-top:6px">🧾 ${calc.totalPizzas} Pizzen · Warenkosten ${money(calc.totalCost)}</div>`;
+}
+
+function readNewOrderPizzas(){
+  return {
+    margherita:Number(document.getElementById('orderPizzaMargherita')?.value||0),
+    salami:Number(document.getElementById('orderPizzaSalami')?.value||0),
+    nutella:Number(document.getElementById('orderPizzaNutella')?.value||0)
+  };
+}
+
+function readEditOrderPizzas(){
+  return {
+    margherita:Number(document.getElementById('editPizzaMargherita')?.value||0),
+    salami:Number(document.getElementById('editPizzaSalami')?.value||0),
+    nutella:Number(document.getElementById('editPizzaNutella')?.value||0)
+  };
+}
+
+function renderOrderCalcFromInputs(){
+  return renderOrderCalc({margherita:0,salami:0,nutella:0});
+}
+
+function refreshNewOrderCalc(){
+  const el=document.getElementById('newOrderCalc');
+  if(el) el.innerHTML=renderOrderCalc(readNewOrderPizzas());
+}
+
+function refreshEditOrderCalc(){
+  const el=document.getElementById('editOrderCalc');
+  if(el) el.innerHTML=renderOrderCalc(readEditOrderPizzas());
+}
+
 function renderPizzaSummary(pizzas){
   if(!pizzas) return '';
   const parts=[];
@@ -483,6 +585,7 @@ function renderOrderList(){
       <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
       <div style="margin-top:7px"><span class="payment-pill ${paymentClass(payment)}">Zahlung: ${escapeHtml(payment)}</span></div>
       ${renderPizzaSummary(o.pizzas)}
+      ${renderCompactCostSummary(o.pizzas)}
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
@@ -609,15 +712,16 @@ function openOrder(index){
         <h3>Pizza-Auswahl</h3>
         <div class="formgrid">
           <label>Margherita
-            <input id="editPizzaMargherita" type="number" min="0" value="${Number(o.pizzas?.margherita||0)}">
+            <input id="editPizzaMargherita" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.margherita||0)}">
           </label>
           <label>Salami
-            <input id="editPizzaSalami" type="number" min="0" value="${Number(o.pizzas?.salami||0)}">
+            <input id="editPizzaSalami" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.salami||0)}">
           </label>
           <label>Nutella-Pizza
-            <input id="editPizzaNutella" type="number" min="0" value="${Number(o.pizzas?.nutella||0)}">
+            <input id="editPizzaNutella" type="number" min="0" oninput="refreshEditOrderCalc()" value="${Number(o.pizzas?.nutella||0)}">
           </label>
         </div>
+        <div id="editOrderCalc" class="calc-summary">${renderOrderCalc(o.pizzas)}</div>
       </div>
 
       <label style="margin-top:12px">Notizen
