@@ -183,7 +183,38 @@ pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennz
 
 pages.settings=()=>shell('Einstellungen','Firmendaten, Benutzer, Fahrzeuge, Benachrichtigungen und Synchronisierung.',`<div class="grid2"><div class="card"><h2>Firma</h2><div class="formgrid"><label>Firmenname<input value="Schneiders Catering"></label><label>Website<input value="https://www.baeckerei-schneider.de"></label><label>Logo<input type="file"></label><label>Heimatadresse<input value="wird hinterlegt"></label></div></div><div class="card"><h2>Benutzer</h2><div class="list"><div class="item"><strong>Du · Administrator</strong><span class="muted">Vollzugriff</span></div><div class="item"><strong>Ehefrau · Familienzugang</strong><span class="muted">Kalender & Aufträge</span></div><div class="item"><strong>Helfer · Mitarbeiter</strong><span class="muted">zugewiesene Aufgaben</span></div></div></div><div class="card"><h2>Fahrzeuge</h2><div class="item"><strong>T6</strong><span class="muted">Verbrauch, Spritpreis und Vollkosten/km werden später hinterlegt.</span></div><button class="btn secondary" style="margin-top:12px" onclick="toast('Fahrzeug hinzugefügt – Demo')">+ Fahrzeug</button></div><div class="card"><h2>Synchronisierung & Handy</h2><p class="muted">Die echte Version wird als responsive, installierbare Web-App aufgebaut: gleiche Daten auf PC und Handy, Offline-Modus und automatische Cloud-Synchronisierung.</p><div class="actions"><span class="pill">Mobile-first</span><span class="pill">Offline</span><span class="pill">Installierbar</span></div></div></div>`);
 
-function render(page){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('main').innerHTML=pages[page]();window.scrollTo(0,0)}
+
+
+ function saveOrder(){
+  const customer=document.querySelector('#orderCustomer').value.trim();
+  const date=document.querySelector('#orderDate').value;
+  const time=document.querySelector('#orderTime').value;
+  const people=document.querySelector('#orderPeople').value;
+  const location=document.querySelector('#orderLocation').value.trim();
+  const price=document.querySelector('#orderPrice').value;
+
+  if(!customer || !date || !time){
+    toast('Bitte Kunde, Datum und Uhrzeit eingeben.');
+    return;
+  }
+
+  const orders=JSON.parse(localStorage.getItem('orders')||'[]');
+
+  orders.push({
+    customer,
+    date,
+    time,
+    people,
+    location,
+    price
+  });
+
+  localStorage.setItem('orders',JSON.stringify(orders));
+
+  toast('Auftrag gespeichert.');
+  render('orders');
+ }
+ function render(page){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('main').innerHTML=pages[page]();window.scrollTo(0,0)}
 function go(p){render(p)}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
 function startTimer(){state.activeTask=document.getElementById('task').value;state.start=Date.now();clearInterval(state.timer);state.timer=setInterval(()=>{const s=Math.floor((Date.now()-state.start)/1000);document.getElementById('clock').textContent=new Date(s*1000).toISOString().substr(11,8)},1000);document.getElementById('timerMsg').textContent='Läuft: '+state.activeTask}
