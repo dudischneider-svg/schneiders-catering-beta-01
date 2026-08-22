@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Prototyp</title>
+<title>Schneiders Catering – Version 1.0</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -64,7 +64,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
 <body>
 <div class="app">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Prototyp</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 1.0</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -92,7 +92,7 @@ function shell(title,sub,body,actions=''){
 }
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
 
-pages.dashboard=()=>shell('Startseite','Dein nächster echter Auftrag steht im Mittelpunkt.',renderDashboard());
+pages.dashboard=()=>shell('Startseite','Aktuelle Zahlen aus deinen gespeicherten Aufträgen.',renderDashboard());
 
 pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',`
 <div class="card">
@@ -215,6 +215,21 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
 
   <div class="card" style="margin-top:16px">
     <h3>Aufträge</h3>
+    <div class="formgrid" style="margin-bottom:12px">
+      <label>Suche
+        <input id="orderSearch" placeholder="Kunde oder Ort" oninput="refreshOrderList()">
+      </label>
+      <label>Status
+        <select id="orderStatusFilter" onchange="refreshOrderList()">
+          <option value="">Alle</option><option>Anfrage</option><option>Bestätigt</option><option>Erledigt</option><option>Storniert</option>
+        </select>
+      </label>
+      <label>Zahlung
+        <select id="orderPaymentFilter" onchange="refreshOrderList()">
+          <option value="">Alle</option><option>Offen</option><option>Anzahlung</option><option>Bezahlt</option>
+        </select>
+      </label>
+    </div>
     <div id="orderList">${renderOrderList()}</div>
   </div>
 
@@ -282,6 +297,8 @@ pages.docs=()=>shell('Dokumente','Angebote und Rechnungen direkt aus gespeichert
 </div>
 `);
 
+pages.stats=()=>shell('Auswertung','Umsatz, Kosten, Gewinn und Zahlungsstatus aus deinen echten Aufträgen.',renderStatsPage());
+
 pages.settings=()=>shell('Einstellungen','Firmendaten für Dokumente sowie Kosten für Arbeit und Fahrzeug.',`
 <div class="grid2">
   <div class="card">
@@ -332,6 +349,17 @@ pages.settings=()=>shell('Einstellungen','Firmendaten für Dokumente sowie Koste
       </label>
     </div>
     <button class="btn ok" style="margin-top:14px" onclick="saveCostSettingsFromForm()">Kalkulationswerte speichern</button>
+  </div>
+  <div class="card">
+    <h2>Datensicherung</h2>
+    <p class="muted">Kunden, Aufträge, Rezepte, Zutatenpreise und Einstellungen sichern oder wiederherstellen.</p>
+    <div class="actions">
+      <button class="btn" onclick="exportBackup()">Backup herunterladen</button>
+      <label class="btn secondary" style="display:inline-flex;align-items:center">
+        Backup einlesen
+        <input type="file" accept="application/json" style="display:none" onchange="importBackup(this.files[0])">
+      </label>
+    </div>
   </div>
 </div>
 `);
@@ -456,6 +484,50 @@ function renderDocumentPreview(orderIndex=0,type='offer'){
       ? 'Vielen Dank für Ihren Auftrag.'
       : 'Wir freuen uns, Ihre Veranstaltung kulinarisch begleiten zu dürfen.'}</p>
   </div>`;
+}
+
+function collectBackup(){
+  return {
+    version:'1.0',
+    exportedAt:new Date().toISOString(),
+    orders:getOrders(),
+    customers:getCustomers(),
+    recipes:getRecipes(),
+    ingredients:getIngredients(),
+    companySettings:getCompanySettings(),
+    costSettings:getCostSettings()
+  };
+}
+
+function exportBackup(){
+  const data=JSON.stringify(collectBackup(),null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`schneiders-catering-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup erstellt.');
+}
+
+async function importBackup(file){
+  if(!file) return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(Array.isArray(data.orders)) localStorage.setItem('orders',JSON.stringify(data.orders));
+    if(Array.isArray(data.customers)) localStorage.setItem('customers',JSON.stringify(data.customers));
+    if(Array.isArray(data.recipes)) localStorage.setItem('recipes',JSON.stringify(data.recipes));
+    if(Array.isArray(data.ingredients)) localStorage.setItem('ingredients',JSON.stringify(data.ingredients));
+    if(data.companySettings) localStorage.setItem('companySettings',JSON.stringify(data.companySettings));
+    if(data.costSettings) localStorage.setItem('costSettings',JSON.stringify(data.costSettings));
+    toast('Backup eingelesen.');
+    setTimeout(()=>location.reload(),700);
+  }catch(e){
+    toast('Backup konnte nicht gelesen werden.');
+  }
 }
 
 function getCompanySettings(){
@@ -1254,54 +1326,160 @@ function getNextOrder(){
     || null;
 }
 
+function monthlyStats(){
+  const groups={};
+  const settings=getCostSettings();
+
+  getOrders().forEach(o=>{
+    const key=(o.date||'Ohne Datum').slice(0,7)||'Ohne Datum';
+    if(!groups[key]) groups[key]={orders:0,revenue:0,purchase:0,labor:0,vehicle:0,profit:0};
+    const g=groups[key];
+    const revenue=Number(o.price||0);
+    const purchase=calcShoppingPurchaseTotal(o);
+    const labor=Number(o.hours||0)*settings.hourlyRate;
+    const vehicle=Number(o.km||0)*settings.kmRate;
+    g.orders+=1;
+    g.revenue+=revenue;
+    g.purchase+=purchase;
+    g.labor+=labor;
+    g.vehicle+=vehicle;
+    g.profit+=revenue-purchase-labor-vehicle;
+  });
+
+  return Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0]));
+}
+
+function renderMonthlyStats(){
+  const rows=monthlyStats().map(([key,g])=>{
+    let title=key;
+    if(/^\d{4}-\d{2}$/.test(key)){
+      const [y,m]=key.split('-').map(Number);
+      title=new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(new Date(y,m-1,1));
+    }
+    return `<tr>
+      <td><strong>${escapeHtml(title)}</strong></td>
+      <td>${g.orders}</td>
+      <td>${money(g.revenue)}</td>
+      <td>${money(g.purchase)}</td>
+      <td>${money(g.labor+g.vehicle)}</td>
+      <td><strong>${money(g.profit)}</strong></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="card" style="margin-top:16px">
+    <h2>Monatsauswertung</h2>
+    <table>
+      <tr><th>Monat</th><th>Aufträge</th><th>Umsatz</th><th>Einkauf</th><th>Arbeit + Fahrt</th><th>Gewinn</th></tr>
+      ${rows || '<tr><td colspan="6">Noch keine Daten.</td></tr>'}
+    </table>
+  </div>`;
+}
+
+function renderStatsPage(){
+  const s=dashboardStats();
+  const orders=getOrders();
+
+  const paid=orders.filter(o=>(o.payment||'Offen')==='Bezahlt');
+  const open=orders.filter(o=>(o.payment||'Offen')!=='Bezahlt');
+
+  const rows=orders
+    .map((o,index)=>({...o,_index:index}))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    .map(o=>`<tr onclick="go('orders');setTimeout(()=>openOrder(${o._index}),0)" style="cursor:pointer">
+      <td><strong>${escapeHtml(o.customer||'Ohne Namen')}</strong></td>
+      <td>${escapeHtml(o.date||'')}</td>
+      <td><span class="status-pill ${statusClass(o.status||'Anfrage')}">${escapeHtml(o.status||'Anfrage')}</span></td>
+      <td><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></td>
+      <td>${money(Number(o.price||0))}</td>
+    </tr>`).join('');
+
+  return `<div class="grid">
+    <div class="card metric"><div class="label">Umsatz</div><div class="num">${money(s.revenue)}</div></div>
+    <div class="card metric"><div class="label">Offene Zahlungen</div><div class="num">${money(s.openRevenue)}</div><div class="muted">${open.length} Aufträge</div></div>
+    <div class="card metric"><div class="label">Bezahlt</div><div class="num">${money(paid.reduce((sum,o)=>sum+Number(o.price||0),0))}</div><div class="muted">${paid.length} Aufträge</div></div>
+    <div class="card metric"><div class="label">Gewinn</div><div class="num">${money(s.profit)}</div></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="row"><h2>Zahlungsübersicht</h2><span class="pill">${orders.length} Aufträge</span></div>
+    <table>
+      <tr><th>Kunde</th><th>Datum</th><th>Status</th><th>Zahlung</th><th>Betrag</th></tr>
+      ${rows || '<tr><td colspan="5">Noch keine Aufträge.</td></tr>'}
+    </table>
+  </div>
+  ${renderMonthlyStats()}`;
+}
+
+function dashboardStats(){
+  const orders=getOrders();
+  const settings=getCostSettings();
+
+  let revenue=0, openRevenue=0, ingredientCost=0, purchaseCost=0, laborCost=0, vehicleCost=0;
+
+  orders.forEach(o=>{
+    const price=Number(o.price||0);
+    revenue+=price;
+    if((o.payment||'Offen')!=='Bezahlt') openRevenue+=price;
+
+    const items=o.recipeItems||legacyPizzasToRecipeItems(o.pizzas);
+    ingredientCost+=calcOrderRecipeFromItems(items).totalCost;
+    purchaseCost+=calcShoppingPurchaseTotal(o);
+    laborCost+=Number(o.hours||0)*settings.hourlyRate;
+    vehicleCost+=Number(o.km||0)*settings.kmRate;
+  });
+
+  const profit=revenue-purchaseCost-laborCost-vehicleCost;
+  return {orders:orders.length,revenue,openRevenue,ingredientCost,purchaseCost,laborCost,vehicleCost,profit};
+}
+
 function renderDashboard(){
   const o=getNextOrder();
+  const s=dashboardStats();
+
+  const kpis=`<div class="grid">
+    <div class="card metric">
+      <div class="label">Umsatz gesamt</div>
+      <div class="num">${money(s.revenue)}</div>
+      <div class="muted">${s.orders} gespeicherte Aufträge</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Offene Zahlungen</div>
+      <div class="num">${money(s.openRevenue)}</div>
+      <div class="muted">noch nicht als bezahlt markiert</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Einkauf volle Packungen</div>
+      <div class="num">${money(s.purchaseCost)}</div>
+      <div class="muted">Verbrauchskosten ${money(s.ingredientCost)}</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Voraussichtlicher Gewinn</div>
+      <div class="num">${money(s.profit)}</div>
+      <div class="muted">nach Einkauf, Arbeit & Fahrzeug</div>
+    </div>
+  </div>`;
 
   if(!o){
-    return `<div class="card">
+    return kpis+`<div class="card" style="margin-top:16px">
       <h2>Noch kein Auftrag vorhanden</h2>
-      <p class="muted">Lege unter „Aufträge“ deinen ersten Catering-Auftrag an.</p>
       <button class="btn" onclick="go('orders')">Auftrag anlegen</button>
     </div>`;
   }
 
   const calc=calcOrderRecipeFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas));
-  const pizzaText=calc.totalPizzas?`${calc.totalPizzas} Pizzen`:`${escapeHtml(o.people||'')} Personen`;
 
-  return `<div class="grid">
-    <div class="card metric">
-      <div class="label">Nächster Auftrag</div>
-      <div class="num">${formatGermanDate(o.date)}</div>
-      <div class="muted">${escapeHtml(o.time||'')} Uhr · ${escapeHtml(o.customer||'Ohne Namen')}</div>
-    </div>
-    <div class="card metric">
-      <div class="label">Personen / Pizzen</div>
-      <div class="num">${pizzaText}</div>
-      <div class="muted">${escapeHtml(o.location||'')}</div>
-    </div>
-    <div class="card metric">
-      <div class="label">Verkaufspreis</div>
-      <div class="num">${money(Number(o.price||0))}</div>
-      <div class="muted">gespeicherter Auftrag</div>
-    </div>
-    <div class="card metric">
-      <div class="label">Zahlungsstatus</div>
-      <div class="num" style="font-size:20px"><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></div>
-      <div class="muted">Auftrag: ${escapeHtml(o.status||'Anfrage')}</div>
-    </div>
-  </div>
-
+  return kpis+`
   <div class="grid2" style="margin-top:16px">
     <div class="card">
       <div class="row">
-        <h2>${escapeHtml(o.customer||'Ohne Namen')}</h2>
+        <h2>Nächster Auftrag</h2>
         <span class="status-pill ${statusClass(o.status||'Anfrage')}">${escapeHtml(o.status||'Anfrage')}</span>
       </div>
       <div class="item ${orderPaymentClass(o.payment||'Offen')}">
-        <strong>${formatGermanDate(o.date)} · ${escapeHtml(o.time||'')} Uhr</strong>
+        <strong>${escapeHtml(o.customer||'Ohne Namen')}</strong>
+        <div class="muted">${formatGermanDate(o.date)} · ${escapeHtml(o.time||'')} Uhr</div>
         <div class="muted">${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')}</div>
         ${renderRecipeItemsSummary(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
-        ${renderCompactCostSummaryFromItems(o.recipeItems||legacyPizzasToRecipeItems(o.pizzas))}
         <div class="actions" style="margin-top:12px">
           <button class="btn" onclick="go('orders');setTimeout(()=>openOrder(${o._index}),0)">Auftrag öffnen</button>
           <button class="btn secondary" onclick="go('shopping')">🛒 Einkauf</button>
@@ -1311,13 +1489,12 @@ function renderDashboard(){
     </div>
 
     <div class="card">
-      <h2>Auf einen Blick</h2>
+      <h2>Kostenübersicht gesamt</h2>
       <div class="list">
-        <div class="item"><strong>Zahlung</strong><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></div>
-        <div class="item"><strong>Warenkosten Rezepte</strong><span class="muted">${money(calc.totalCost)}</span></div>
-        <div class="item"><strong>Voraussichtlicher Gewinn</strong><span class="muted">${money(Number(o.price||0)-calcShoppingPurchaseTotal(o)-(Number(o.hours||0)*getCostSettings().hourlyRate)-(Number(o.km||0)*getCostSettings().kmRate))}</span></div>
-        <div class="item"><strong>Telefon</strong><span class="muted">${escapeHtml(o.phone||'—')}</span></div>
-        <div class="item"><strong>E-Mail</strong><span class="muted">${escapeHtml(o.email||'—')}</span></div>
+        <div class="item"><strong>Verbrauchskosten Zutaten</strong><span class="muted">${money(s.ingredientCost)}</span></div>
+        <div class="item"><strong>Einkauf volle Packungen</strong><span class="muted">${money(s.purchaseCost)}</span></div>
+        <div class="item"><strong>Arbeitskosten</strong><span class="muted">${money(s.laborCost)}</span></div>
+        <div class="item"><strong>Fahrzeugkosten</strong><span class="muted">${money(s.vehicleCost)}</span></div>
       </div>
     </div>
   </div>`;
@@ -1526,13 +1703,25 @@ function renderPizzaSummary(pizzas){
 }
 
 function renderOrderList(){
-  const orders=getOrders();
-  if(!orders.length) return '<p class="muted">Noch keine Aufträge angelegt.</p>';
+  const all=getOrders();
+  const search=(document.getElementById('orderSearch')?.value||'').trim().toLowerCase();
+  const statusFilter=document.getElementById('orderStatusFilter')?.value||'';
+  const paymentFilter=document.getElementById('orderPaymentFilter')?.value||'';
 
-  return orders.map((o,index)=>{
+  const orders=all.map((o,index)=>({...o,_index:index})).filter(o=>{
+    const hay=`${o.customer||''} ${o.location||''}`.toLowerCase();
+    if(search && !hay.includes(search)) return false;
+    if(statusFilter && (o.status||'Anfrage')!==statusFilter) return false;
+    if(paymentFilter && (o.payment||'Offen')!==paymentFilter) return false;
+    return true;
+  });
+
+  if(!orders.length) return '<p class="muted">Keine passenden Aufträge gefunden.</p>';
+
+  return orders.map(o=>{
     const status=o.status||'Anfrage';
     const payment=o.payment||'Offen';
-    return `<div class="item order-item ${orderPaymentClass(payment)}" onclick="openOrder(${index})">
+    return `<div class="item order-item ${orderPaymentClass(payment)}" onclick="openOrder(${o._index})">
       <div class="row">
         <strong>${escapeHtml(o.customer||'Ohne Namen')}</strong>
         <span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span>
@@ -1544,6 +1733,11 @@ function renderOrderList(){
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
+}
+
+function refreshOrderList(){
+  const el=document.getElementById('orderList');
+  if(el) el.innerHTML=renderOrderList();
 }
 
 function saveOrder(){
