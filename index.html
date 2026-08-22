@@ -85,21 +85,7 @@ function shell(title,sub,body,actions=''){
 }
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
 
-pages.dashboard=()=>shell('Guten Morgen 👋','Dein nächster Auftrag steht im Mittelpunkt.',
-`<div class="grid">
-<div class="card metric"><div class="label">Nächster Auftrag</div><div class="num">Samstag</div><div class="muted">18:00 · Müller GmbH</div></div>
-<div class="card metric"><div class="label">Personen / Pizzen</div><div class="num">60</div><div class="muted">Göttingen · 54 km</div></div>
-<div class="card metric"><div class="label">Verkaufspreis</div><div class="num">${money(1400)}</div><div class="muted">interne Vorkalkulation</div></div>
-<div class="card metric"><div class="label">Erwarteter Gewinn</div><div class="num">${money(480)}</div><div class="muted">nach kalkulierten Kosten</div></div>
-</div>
-<div class="grid2" style="margin-top:16px">
-<div class="card"><div class="row"><h2>Nächster Auftrag</h2><span class="pill">Bestätigt</span></div>
-<div class="item"><strong>Müller GmbH · Sommerfest</strong><span class="muted">Samstag, 12.09.2026 · 18:00 Uhr · Göttingen</span><div class="actions" style="margin-top:12px"><button class="btn" onclick="go('orders')">Auftrag öffnen</button><button class="btn secondary" onclick="toast('Termin zum Teilen vorbereitet')">📤 Teilen</button><button class="btn secondary" onclick="toast('Navigation geöffnet')">📍 Route</button></div></div>
-<h3 style="margin-top:22px">Vorbereitung</h3><div class="timeline"><div><div class="t">Donnerstag</div><span class="muted">Vorteig herstellen</span></div><div><div class="t">Freitag</div><span class="muted">Hauptteig · Portionieren</span></div><div><div class="t">Samstag</div><span class="muted">Einkauf · Beladen · Fahrt · Catering</span></div></div>
-</div>
-<div class="card"><h2>Offene Aufgaben</h2><div class="list">
-<div class="item">☐ Gasflaschen prüfen</div><div class="item">☐ Einkauf erledigen</div><div class="item">☐ Öfen einladen</div><div class="item">☐ Angebot/Anzahlung prüfen</div>
-</div><h3 style="margin-top:22px">Letzte Aufträge</h3><div class="list"><div class="item"><strong>Schmidt · 80 Pizzen</strong><span class="muted">1.750 € · Gewinn 570 €</span></div><div class="item"><strong>Weber · 40 Pizzen</strong><span class="muted">950 € · Gewinn 260 €</span></div></div></div></div>`);
+pages.dashboard=()=>shell('Startseite','Dein nächster echter Auftrag steht im Mittelpunkt.',renderDashboard());
 
 pages.customers=()=>shell('Kunden','Stammdaten, Adressen und Auftragshistorie.',`
 <div class="card">
@@ -579,6 +565,90 @@ function renderCalendarList(){
       </div>
     </div>`;
   }).join('');
+}
+
+function getNextOrder(){
+  const now=new Date();
+  const orders=getOrders()
+    .map((o,index)=>({...o,_index:index}))
+    .filter(o=>o.date)
+    .sort((a,b)=>{
+      const ad=new Date(`${a.date}T${a.time||'23:59'}`);
+      const bd=new Date(`${b.date}T${b.time||'23:59'}`);
+      return ad-bd;
+    });
+
+  return orders.find(o=>new Date(`${o.date}T${o.time||'23:59'}`)>=now)
+    || orders[orders.length-1]
+    || null;
+}
+
+function renderDashboard(){
+  const o=getNextOrder();
+
+  if(!o){
+    return `<div class="card">
+      <h2>Noch kein Auftrag vorhanden</h2>
+      <p class="muted">Lege unter „Aufträge“ deinen ersten Catering-Auftrag an.</p>
+      <button class="btn" onclick="go('orders')">Auftrag anlegen</button>
+    </div>`;
+  }
+
+  const calc=calcOrderRecipe(o.pizzas||{});
+  const pizzaText=calc.totalPizzas?`${calc.totalPizzas} Pizzen`:`${escapeHtml(o.people||'')} Personen`;
+
+  return `<div class="grid">
+    <div class="card metric">
+      <div class="label">Nächster Auftrag</div>
+      <div class="num">${formatGermanDate(o.date)}</div>
+      <div class="muted">${escapeHtml(o.time||'')} Uhr · ${escapeHtml(o.customer||'Ohne Namen')}</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Personen / Pizzen</div>
+      <div class="num">${pizzaText}</div>
+      <div class="muted">${escapeHtml(o.location||'')}</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Verkaufspreis</div>
+      <div class="num">${money(Number(o.price||0))}</div>
+      <div class="muted">gespeicherter Auftrag</div>
+    </div>
+    <div class="card metric">
+      <div class="label">Zahlungsstatus</div>
+      <div class="num" style="font-size:20px"><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></div>
+      <div class="muted">Auftrag: ${escapeHtml(o.status||'Anfrage')}</div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="card">
+      <div class="row">
+        <h2>${escapeHtml(o.customer||'Ohne Namen')}</h2>
+        <span class="status-pill ${statusClass(o.status||'Anfrage')}">${escapeHtml(o.status||'Anfrage')}</span>
+      </div>
+      <div class="item ${orderPaymentClass(o.payment||'Offen')}">
+        <strong>${formatGermanDate(o.date)} · ${escapeHtml(o.time||'')} Uhr</strong>
+        <div class="muted">${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')}</div>
+        ${renderPizzaSummary(o.pizzas)}
+        ${renderCompactCostSummary(o.pizzas)}
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" onclick="go('orders');setTimeout(()=>openOrder(${o._index}),0)">Auftrag öffnen</button>
+          <button class="btn secondary" onclick="go('shopping')">🛒 Einkauf</button>
+          <button class="btn secondary" onclick="go('calendar')">📅 Kalender</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Auf einen Blick</h2>
+      <div class="list">
+        <div class="item"><strong>Zahlung</strong><span class="payment-pill ${paymentClass(o.payment||'Offen')}">${escapeHtml(o.payment||'Offen')}</span></div>
+        <div class="item"><strong>Warenkosten Rezepte</strong><span class="muted">${money(calc.totalCost)}</span></div>
+        <div class="item"><strong>Telefon</strong><span class="muted">${escapeHtml(o.phone||'—')}</span></div>
+        <div class="item"><strong>E-Mail</strong><span class="muted">${escapeHtml(o.email||'—')}</span></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function getOrders(){
