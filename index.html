@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 1.0</title>
+<title>Schneiders Catering – Version 2.0 Cloud</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -59,12 +59,34 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
   nav button{font-size:10px}
   .top .actions{width:100%}
 }
+
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#17191c}
+.auth-card{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 16px 50px #0005}
+.auth-card h1{margin:0 0 6px}.auth-card p{color:#6b7280}
+.auth-error{color:#991b1b;background:#fee2e2;border-radius:9px;padding:10px;margin-top:10px;display:none}
+.cloud-status{font-size:12px;color:#aaa;margin-top:14px;overflow-wrap:anywhere}
+#appRoot{display:none}
+
 </style>
 </head>
 <body>
-<div class="app">
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <h1>Schneiders Catering</h1>
+    <p>Sicher anmelden</p>
+    <label>E-Mail
+      <input id="loginEmail" type="email" autocomplete="username" placeholder="E-Mail-Adresse">
+    </label>
+    <label style="margin-top:12px">Passwort
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Passwort">
+    </label>
+    <button class="btn ok" style="width:100%;margin-top:16px" onclick="loginToApp()">Anmelden</button>
+    <div id="authError" class="auth-error"></div>
+  </div>
+</div>
+<div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 1.0</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.0 Cloud</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -78,14 +100,204 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
     <button data-page="stats">📊 Auswertung</button>
     <button data-page="settings">⚙️ Einstellungen</button>
   </nav>
+  <div class="cloud-status">
+    <div id="cloudUser">Nicht angemeldet</div>
+    <button class="btn secondary" style="margin-top:8px;width:100%" onclick="logoutFromApp()">Abmelden</button>
+  </div>
 </aside>
 <main id="main"></main>
 </div>
 <div id="toast" class="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const state={timer:null,start:null,activeTask:null};
 const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
 const pages={};
+
+
+// ===== SUPABASE CLOUD KONFIGURATION =====
+// Ersetze NUR die beiden Werte zwischen den Anführungszeichen.
+const SUPABASE_URL='https://lptohpitlidsvmtdbfks.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD';
+let sb=null;
+let currentUser=null;
+let cloudSyncBusy=false;
+
+function cloudConfigured(){
+  return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co')
+    && !SUPABASE_PUBLISHABLE_KEY.includes('__SUPABASE_') && SUPABASE_PUBLISHABLE_KEY.length>20;
+}
+
+function authMessage(message){
+  const el=document.getElementById('authError');
+  if(!el) return;
+  el.textContent=message||'';
+  el.style.display=message?'block':'none';
+}
+
+async function bootstrapAuth(){
+  if(!cloudConfigured()){
+    authMessage('Supabase ist noch nicht konfiguriert. Bitte Project URL und Publishable Key in der index.html einsetzen.');
+    return;
+  }
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  });
+  const {data:{session},error}=await sb.auth.getSession();
+  if(error){authMessage(error.message);return;}
+  if(session?.user) await enterAuthenticatedApp(session.user);
+  sb.auth.onAuthStateChange(async(event,sessionNow)=>{
+    if(event==='SIGNED_OUT' || !sessionNow?.user){showLogin();return;}
+    if(event==='SIGNED_IN' && sessionNow?.user && sessionNow.user.id!==currentUser?.id){
+      await enterAuthenticatedApp(sessionNow.user);
+    }
+  });
+}
+
+async function loginToApp(){
+  authMessage('');
+  if(!sb){
+    if(!cloudConfigured()){authMessage('Supabase-Konfiguration fehlt.');return;}
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true}});
+  }
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  if(!email||!password){authMessage('Bitte E-Mail und Passwort eingeben.');return;}
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){authMessage('Anmeldung fehlgeschlagen: '+error.message);return;}
+  if(data.user) await enterAuthenticatedApp(data.user);
+}
+
+async function logoutFromApp(){
+  if(sb) await sb.auth.signOut();
+  currentUser=null;
+  showLogin();
+}
+
+function showLogin(){
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('appRoot').style.display='none';
+}
+
+async function enterAuthenticatedApp(user){
+  currentUser=user;
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appRoot').style.display='grid';
+  const label=document.getElementById('cloudUser');
+  if(label) label.textContent='🔒 '+(user.email||'Angemeldet');
+  await loadCloudData(false);
+  render('dashboard');
+}
+
+function cloudError(prefix,error){
+  console.error(prefix,error);
+  toast(prefix+': '+(error?.message||'Fehler'));
+}
+
+async function replaceUserRows(table,rows){
+  if(!sb||!currentUser||cloudSyncBusy) return;
+  cloudSyncBusy=true;
+  try{
+    const {error:delError}=await sb.from(table).delete().eq('user_id',currentUser.id);
+    if(delError) throw delError;
+    if(rows.length){
+      const {error:insError}=await sb.from(table).insert(rows.map(r=>({...r,user_id:currentUser.id})));
+      if(insError) throw insError;
+    }
+  }catch(e){cloudError('Cloud-Speicherung fehlgeschlagen',e)}
+  finally{cloudSyncBusy=false;}
+}
+
+async function syncCustomersToCloud(customers=getCustomers()){
+  return replaceUserRows('customers',customers.map(c=>({
+    name:c.name||'',street:c.street||null,zip:c.zip||null,city:c.city||null,
+    phone:c.phone||null,email:c.email||null,notes:c.notes||null
+  })));
+}
+
+async function syncOrdersToCloud(orders=getOrders()){
+  return replaceUserRows('orders',orders.map(o=>({
+    customer_name:o.customer||'',status:o.status||'Anfrage',event_date:o.date||null,event_time:o.time||null,
+    people:Number(o.people||0),location:o.location||null,street:o.street||null,phone:o.phone||null,email:o.email||null,
+    price:Number(o.price||0),payment_status:o.payment||'Offen',hours:Number(o.hours||0),km:Number(o.km||0),
+    notes:o.notes||null,recipe_items:o.recipeItems||legacyPizzasToRecipeItems(o.pizzas)
+  })));
+}
+
+async function syncIngredientsToCloud(items=getIngredients()){
+  return replaceUserRows('ingredients',items.map(i=>({
+    name:i.name||'',package_size:Number(i.packGrams||0),package_unit:'g',package_price:Number(i.packPrice||0)
+  })));
+}
+
+async function syncRecipesToCloud(recipes=getRecipes()){
+  return replaceUserRows('recipes',recipes.map(r=>({
+    name:r.name||'',
+    ingredients:{dough:Number(r.dough||0),sauce:Number(r.sauce||0),cheese:Number(r.cheese||0),toppingName:r.toppingName||'',topping:Number(r.topping||0),extraName:r.extraName||'',extra:Number(r.extra||0)},
+    notes:r.notes||null
+  })));
+}
+
+async function syncSettingsToCloud(){
+  if(!sb||!currentUser) return;
+  const c=getCompanySettings();
+  const k=getCostSettings();
+  const row={user_id:currentUser.id,company_name:c.name||'',owner_name:c.owner||'',street:c.street||null,city:c.city||null,
+    phone:c.phone||null,email:c.email||null,iban:c.iban||null,bic:c.bic||null,tax_number:c.tax||null,
+    payment_days:Number(c.paymentDays||0),hourly_rate:Number(k.hourlyRate||0),km_rate:Number(k.kmRate||0),updated_at:new Date().toISOString()};
+  const {error}=await sb.from('company_settings').upsert(row,{onConflict:'user_id'});
+  if(error) cloudError('Einstellungen konnten nicht gespeichert werden',error);
+}
+
+async function syncAllToCloud(){
+  if(!currentUser){toast('Bitte zuerst anmelden.');return;}
+  if(!confirm('Lokale Kunden, Aufträge, Rezepte, Zutaten und Einstellungen jetzt in die geschützte Cloud übertragen?')) return;
+  await syncCustomersToCloud();
+  await syncOrdersToCloud();
+  await syncIngredientsToCloud();
+  await syncRecipesToCloud();
+  await syncSettingsToCloud();
+  toast('Cloud-Sicherung abgeschlossen.');
+}
+
+async function loadCloudData(force=false){
+  if(!sb||!currentUser) return;
+  try{
+    const [cRes,oRes,iRes,rRes,sRes]=await Promise.all([
+      sb.from('customers').select('*').order('created_at',{ascending:true}),
+      sb.from('orders').select('*').order('created_at',{ascending:true}),
+      sb.from('ingredients').select('*').order('created_at',{ascending:true}),
+      sb.from('recipes').select('*').order('created_at',{ascending:true}),
+      sb.from('company_settings').select('*').eq('user_id',currentUser.id).maybeSingle()
+    ]);
+    for(const res of [cRes,oRes,iRes,rRes,sRes]) if(res.error) throw res.error;
+
+    if(force || cRes.data.length){
+      localStorage.setItem('customers',JSON.stringify(cRes.data.map(c=>({name:c.name||'',street:c.street||'',zip:c.zip||'',city:c.city||'',phone:c.phone||'',email:c.email||'',notes:c.notes||''}))));
+    }
+    if(force || oRes.data.length){
+      localStorage.setItem('orders',JSON.stringify(oRes.data.map(o=>({customer:o.customer_name||'',status:o.status||'Anfrage',date:o.event_date||'',time:(o.event_time||'').slice(0,5),people:o.people||0,location:o.location||'',street:o.street||'',phone:o.phone||'',email:o.email||'',price:o.price||0,payment:o.payment_status||'Offen',hours:o.hours||0,km:o.km||0,notes:o.notes||'',recipeItems:Array.isArray(o.recipe_items)?o.recipe_items:[]}))));
+    }
+    if(force || iRes.data.length){
+      localStorage.setItem('ingredients',JSON.stringify(iRes.data.map(i=>({name:i.name||'',packGrams:Number(i.package_size||0),packPrice:Number(i.package_price||0)}))));
+    }
+    if(force || rRes.data.length){
+      localStorage.setItem('recipes',JSON.stringify(rRes.data.map(r=>({name:r.name||'',...(r.ingredients||{}),notes:r.notes||''}))));
+    }
+    if(sRes.data){
+      const s=sRes.data;
+      localStorage.setItem('companySettings',JSON.stringify({name:s.company_name||'Schneiders Catering',owner:s.owner_name||'',street:s.street||'',city:s.city||'',phone:s.phone||'',email:s.email||'',iban:s.iban||'',bic:s.bic||'',tax:s.tax_number||'',paymentDays:Number(s.payment_days||14)}));
+      localStorage.setItem('costSettings',JSON.stringify({hourlyRate:Number(s.hourly_rate||30),kmRate:Number(s.km_rate||0.65)}));
+    }
+  }catch(e){cloudError('Cloud-Daten konnten nicht geladen werden',e)}
+}
+
+async function reloadFromCloud(){
+  if(!confirm('Lokale Daten durch den aktuellen Stand aus der Cloud ersetzen?')) return;
+  await loadCloudData(true);
+  render(state.currentPage||'dashboard');
+  toast('Cloud-Daten geladen.');
+}
 
 function shell(title,sub,body,actions=''){
   return `<div class="top"><div><h1>${title}</h1><p>${sub||''}</p></div><div class="actions">${actions||''}</div></div>${body||''}`;
@@ -351,6 +563,14 @@ pages.settings=()=>shell('Einstellungen','Firmendaten für Dokumente sowie Koste
     <button class="btn ok" style="margin-top:14px" onclick="saveCostSettingsFromForm()">Kalkulationswerte speichern</button>
   </div>
   <div class="card">
+    <h2>🔒 Sichere Cloud</h2>
+    <p class="muted">Angemeldet als <b>${escapeHtml(currentUser?.email||'')}</b>. Deine Geschäftsdaten können mit Supabase synchronisiert werden.</p>
+    <div class="actions">
+      <button class="btn ok" onclick="syncAllToCloud()">Lokale Daten in Cloud sichern</button>
+      <button class="btn secondary" onclick="reloadFromCloud()">Daten aus Cloud laden</button>
+    </div>
+  </div>
+  <div class="card">
     <h2>Datensicherung</h2>
     <p class="muted">Kunden, Aufträge, Rezepte, Zutatenpreise und Einstellungen sichern oder wiederherstellen.</p>
     <div class="actions">
@@ -574,6 +794,7 @@ function saveCompanySettingsFromForm(){
     paymentDays:Number(document.getElementById('companyPaymentDays').value||0)
   };
   localStorage.setItem('companySettings',JSON.stringify(s));
+  if(currentUser) syncSettingsToCloud();
   toast('Firmendaten gespeichert.');
 }
 
@@ -598,6 +819,7 @@ function saveCostSettingsFromForm(){
   const hourlyRate=Number(document.getElementById('settingHourlyRate').value||0);
   const kmRate=Number(document.getElementById('settingKmRate').value||0);
   localStorage.setItem('costSettings',JSON.stringify({hourlyRate,kmRate}));
+  if(currentUser) syncSettingsToCloud();
   toast('Kalkulationswerte gespeichert.');
 }
 
@@ -624,6 +846,7 @@ function getIngredients(){
 
 function saveIngredients(items){
   localStorage.setItem('ingredients',JSON.stringify(items));
+  if(currentUser) syncIngredientsToCloud(items);
 }
 
 function ingredientPricePerGram(name){
@@ -795,6 +1018,7 @@ function getRecipes(){
 
 function saveRecipes(recipes){
   localStorage.setItem('recipes',JSON.stringify(recipes));
+  if(currentUser) syncRecipesToCloud(recipes);
 }
 
 function calculateRecipeCost(recipe={}){
@@ -1012,6 +1236,7 @@ function getCustomers(){
 
 function saveCustomers(customers){
   localStorage.setItem('customers',JSON.stringify(customers));
+  if(currentUser) syncCustomersToCloud(customers);
 }
 
 function getCustomerOrderCount(name){
@@ -1510,6 +1735,7 @@ function getOrders(){
 
 function saveOrders(orders){
   localStorage.setItem('orders',JSON.stringify(orders));
+  if(currentUser) syncOrdersToCloud(orders);
 }
 
 function escapeHtml(value){
@@ -1984,6 +2210,7 @@ function closeOrderEditor(){
 }
 
 function render(page){
+  state.currentPage=page;
   document.querySelectorAll('#nav button').forEach(b=>{
     b.classList.toggle('active',b.dataset.page===page);
   });
@@ -1994,7 +2221,7 @@ function go(p){render(p)}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
 function startTimer(){state.activeTask=document.getElementById('task').value;state.start=Date.now();clearInterval(state.timer);state.timer=setInterval(()=>{const s=Math.floor((Date.now()-state.start)/1000);document.getElementById('clock').textContent=new Date(s*1000).toISOString().substr(11,8)},1000);document.getElementById('timerMsg').textContent='Läuft: '+state.activeTask}
 function stopTimer(){if(!state.start){toast('Noch keine Tätigkeit gestartet');return}clearInterval(state.timer);const ms=Date.now()-state.start;document.getElementById('timerMsg').textContent=state.activeTask+' beendet: '+Math.round(ms/60000)+' Minuten';state.start=null}
-render('dashboard');
+bootstrapAuth();
 </script>
 </body>
 </html>
