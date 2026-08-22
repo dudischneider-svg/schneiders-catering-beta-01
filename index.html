@@ -26,6 +26,13 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
 .order-payment-partial{border-left:6px solid #f59e0b;background:#fffaf0}
 .order-payment-paid{border-left:6px solid #16a34a;background:#f5fff7}
 .hidden{display:none!important}.toast{position:fixed;right:20px;bottom:20px;background:#17191c;color:white;padding:12px 16px;border-radius:10px;display:none}
+@media print{
+  aside,.top,nav,.actions,#docOrderSelect,label[for="docOrderSelect"]{display:none!important}
+  .app{display:block}
+  main{padding:0;max-width:none}
+  .card{box-shadow:none;border:0}
+  #documentPreview .card{border:0}
+}
 @media(max-width:850px){
   *{max-width:100%}
   body{overflow-x:hidden}
@@ -250,9 +257,30 @@ pages.calendar=()=>shell('Kalender','Gespeicherte Catering-Aufträge nach Datum 
 </div>
 `);
 
-pages.docs=()=>shell('Angebote & Rechnungen','Aus Aufträgen erzeugte Kundendokumente – intern mit Vorschau.',`<div class="grid2"><div class="card"><h2>Dokument erstellen</h2><div class="formgrid"><label>Dokumenttyp<select><option>Angebot</option><option>Anzahlungsrechnung</option><option>Schlussrechnung</option></select></label><label>Nummer<input value="2026-0042"></label><label>Auftrag<input value="Müller GmbH – 60 Pizzen"></label><label>Zahlungsziel<input value="14 Tage"></label></div><div class="actions" style="margin-top:14px"><button class="btn" onclick="toast('PDF-Vorschau erstellt')">📄 PDF-Vorschau</button><button class="btn secondary" onclick="toast('Druckdialog geöffnet')">🖨️ Drucken</button></div></div><div class="card"><h2>Logo & Firmendaten</h2><div class="item"><strong>Schneiders Catering</strong><span class="muted">Logo: Platzhalter · später hochladen</span><br><span class="muted">Website: baeckerei-schneider.de</span></div></div></div>`);
+pages.docs=()=>shell('Dokumente','Angebote und Rechnungen direkt aus gespeicherten Aufträgen erstellen.',`
+<div class="card">
+  <div class="row">
+    <h2>Dokumente</h2>
+    <span class="pill">aus Auftrag</span>
+  </div>
 
-pages.stats=()=>shell('Auswertung','Einfacher Überblick plus detaillierte Kennzahlen.',`<div class="grid"><div class="card metric"><div class="label">Caterings 2026</div><div class="num">24</div></div><div class="card metric"><div class="label">Umsatz</div><div class="num">31.500 €</div></div><div class="card metric"><div class="label">Unternehmergewinn</div><div class="num">12.800 €</div></div><div class="card metric"><div class="label">Gewinn/Std.</div><div class="num">42,70 €</div></div></div><div class="card" style="margin-top:16px"><h2>Beispielauswertung</h2><table><tr><th>Zeitraum</th><th>Aufträge</th><th>Umsatz</th><th>Kosten</th><th>Gewinn</th></tr><tr><td>August</td><td>8</td><td>10.200 €</td><td>6.100 €</td><td>4.100 €</td></tr><tr><td>September</td><td>6</td><td>8.400 €</td><td>5.100 €</td><td>3.300 €</td></tr></table></div>`);
+  <label>Auftrag auswählen
+    <select id="docOrderSelect" onchange="refreshDocumentPreview()">
+      ${renderDocumentOrderOptions()}
+    </select>
+  </label>
+
+  <div class="actions" style="margin-top:14px">
+    <button class="btn" onclick="setDocumentType('offer')">Angebot</button>
+    <button class="btn secondary" onclick="setDocumentType('invoice')">Rechnung</button>
+    <button class="btn secondary" onclick="window.print()">Drucken / PDF</button>
+  </div>
+
+  <div id="documentPreview" style="margin-top:16px">
+    ${renderDocumentPreview(0,'offer')}
+  </div>
+</div>
+`);
 
 pages.settings=()=>shell('Einstellungen','Firmendaten sowie Kosten für Arbeit und Fahrzeug.',`
 <div class="grid2">
@@ -275,6 +303,109 @@ pages.settings=()=>shell('Einstellungen','Firmendaten sowie Kosten für Arbeit u
   </div>
 </div>
 `);
+
+let currentDocumentType='offer';
+
+function renderDocumentOrderOptions(){
+  const orders=getOrders();
+  if(!orders.length) return '<option value="">Noch keine Aufträge</option>';
+
+  return orders.map((o,index)=>{
+    const label=`${o.customer||'Ohne Namen'} · ${o.date||''} · ${money(Number(o.price||0))}`;
+    return `<option value="${index}">${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function getSelectedDocumentOrderIndex(){
+  const el=document.getElementById('docOrderSelect');
+  if(!el) return getOrders().length?0:-1;
+  return el.value===''?-1:Number(el.value);
+}
+
+function setDocumentType(type){
+  currentDocumentType=type;
+  refreshDocumentPreview();
+}
+
+function refreshDocumentPreview(){
+  const wrap=document.getElementById('documentPreview');
+  if(!wrap) return;
+  wrap.innerHTML=renderDocumentPreview(getSelectedDocumentOrderIndex(),currentDocumentType);
+}
+
+function documentNumber(orderIndex,type){
+  const year=new Date().getFullYear();
+  const prefix=type==='invoice'?'RE':'AN';
+  return `${prefix}-${year}-${String(orderIndex+1).padStart(4,'0')}`;
+}
+
+function renderDocumentPreview(orderIndex=0,type='offer'){
+  const orders=getOrders();
+  const o=orders[orderIndex];
+  if(!o) return '<p class="muted">Kein Auftrag ausgewählt.</p>';
+
+  const items=o.recipeItems||legacyPizzasToRecipeItems(o.pizzas);
+  const calc=calcOrderRecipeFromItems(items);
+  const title=type==='invoice'?'Rechnung':'Angebot';
+  const number=documentNumber(orderIndex,type);
+  const date=new Intl.DateTimeFormat('de-DE').format(new Date());
+  const itemRows=items.filter(x=>Number(x.count)>0).map(x=>`
+    <tr>
+      <td>${escapeHtml(x.recipeName)}</td>
+      <td>${Number(x.count)}</td>
+    </tr>`).join('');
+
+  return `<div class="card">
+    <div class="row">
+      <div>
+        <h2 style="margin-bottom:4px">Schneiders Catering</h2>
+        <div class="muted">Catering-Verwaltung</div>
+      </div>
+      <div style="text-align:right">
+        <h2 style="margin-bottom:4px">${title}</h2>
+        <div class="muted">${number}</div>
+      </div>
+    </div>
+
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+
+    <div class="grid2">
+      <div>
+        <strong>Empfänger</strong>
+        <div>${escapeHtml(o.customer||'Ohne Namen')}</div>
+        <div>${escapeHtml(o.street||'')}</div>
+        <div>${escapeHtml(o.location||'')}</div>
+        <div>${escapeHtml(o.email||'')}</div>
+        <div>${escapeHtml(o.phone||'')}</div>
+      </div>
+      <div>
+        <strong>Datum</strong>
+        <div>${date}</div>
+        <div style="margin-top:8px"><strong>Veranstaltung</strong></div>
+        <div>${formatGermanDate(o.date)} · ${escapeHtml(o.time||'')} Uhr</div>
+        <div>${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')}</div>
+      </div>
+    </div>
+
+    <table style="margin-top:20px">
+      <tr><th>Leistung / Pizza</th><th>Anzahl</th></tr>
+      ${itemRows || `<tr><td>Catering laut Auftrag</td><td>${escapeHtml(o.people||'')} Personen</td></tr>`}
+    </table>
+
+    <div class="card" style="margin-top:18px">
+      <div class="row">
+        <strong>${type==='invoice'?'Rechnungsbetrag':'Angebotspreis'}</strong>
+        <strong style="font-size:22px">${money(Number(o.price||0))}</strong>
+      </div>
+    </div>
+
+    ${o.notes?`<div style="margin-top:18px"><strong>Hinweise</strong><p>${escapeHtml(o.notes)}</p></div>`:''}
+
+    <p class="muted" style="margin-top:24px">${type==='invoice'
+      ? 'Vielen Dank für Ihren Auftrag.'
+      : 'Wir freuen uns, Ihre Veranstaltung kulinarisch begleiten zu dürfen.'}</p>
+  </div>`;
+}
 
 function getCostSettings(){
   try{
