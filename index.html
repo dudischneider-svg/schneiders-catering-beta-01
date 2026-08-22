@@ -7,7 +7,7 @@
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
-button,input,select{font:inherit} button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+button,input,select,textarea{font:inherit} button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 aside{background:#17191c;color:white;padding:22px 16px;position:sticky;top:0;height:100vh}
 .brand{font-size:21px;font-weight:800;margin-bottom:24px}.brand small{display:block;color:#aaa;font-size:12px;font-weight:500;margin-top:3px}
 nav button{display:block;width:100%;text-align:left;background:transparent;color:#ddd;padding:11px 12px;border-radius:10px;margin:3px 0}nav button:hover,nav button.active{background:#2a2d31;color:white}
@@ -15,7 +15,7 @@ main{padding:28px;max-width:1280px;width:100%;margin:auto}.top{display:flex;just
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 8px #00000006}.metric .label{font-size:13px;color:var(--muted)}.metric .num{font-size:27px;font-weight:800;margin-top:6px}
 h2,h3{margin-top:0}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.btn{background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700}.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ok{background:var(--ok)}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent2);font-size:12px;font-weight:700}.muted{color:var(--muted)}.list{display:grid;gap:10px}.item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff}.item:hover{border-color:#c7cbd1}.item strong{display:block}.order-item{cursor:pointer}.order-item:hover{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}.order-editor{margin-top:16px}.actions{display:flex;gap:8px;flex-wrap:wrap}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
-.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-size:13px;color:var(--muted);display:block}input,select,textarea{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:10px;background:white;color:var(--ink)}textarea{min-height:96px;resize:vertical}
 .kpi{background:#fafafa;border-radius:12px;padding:12px}.money{font-weight:800}.timeline{border-left:3px solid var(--accent);padding-left:15px;display:grid;gap:12px}.timeline .t{font-weight:700}
 .hidden{display:none!important}.toast{position:fixed;right:20px;bottom:20px;background:#17191c;color:white;padding:12px 16px;border-radius:10px;display:none}
 @media(max-width:850px){
@@ -37,7 +37,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
   .actions .btn{flex:1 1 auto;min-height:44px}
   table{display:block;overflow-x:auto;white-space:nowrap}
   .item{padding:12px}
-  input,select{min-height:44px}
+  input,select,textarea{min-height:44px}
 }
 @media(max-width:430px){
   nav{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -151,7 +151,31 @@ pages.orders=()=>shell('Aufträge','Catering-Aufträge anlegen, speichern und ve
       <label>Verkaufspreis €
         <input id="orderPrice" type="number" step="0.01">
       </label>
+
+      <label>Telefon
+        <input id="orderPhone" type="tel" placeholder="Telefonnummer">
+      </label>
+
+      <label>E-Mail
+        <input id="orderEmail" type="email" placeholder="name@beispiel.de">
+      </label>
+
+      <label>Straße / Hausnummer
+        <input id="orderStreet" placeholder="Veranstaltungsadresse">
+      </label>
+
+      <label>Zahlungsstatus
+        <select id="orderPayment">
+          <option>Offen</option>
+          <option>Anzahlung</option>
+          <option>Bezahlt</option>
+        </select>
+      </label>
     </div>
+
+    <label style="margin-top:12px">Notizen
+      <textarea id="orderNotes" placeholder="Wünsche, Besonderheiten, Ansprechpartner …"></textarea>
+    </label>
 
     <button class="btn" style="margin-top:14px" onclick="saveOrder()">Auftrag speichern</button>
   </div>
@@ -216,6 +240,7 @@ function renderOrderList(){
         <span class="pill">${escapeHtml(status)}</span>
       </div>
       <div class="muted">${escapeHtml(o.date||'')} · ${escapeHtml(o.time||'')} · ${escapeHtml(o.people||'')} Personen · ${escapeHtml(o.location||'')} · ${escapeHtml(o.price||'')} €</div>
+      <div class="muted">Zahlung: ${escapeHtml(o.payment||'Offen')}</div>
       <div class="muted" style="margin-top:6px">Zum Öffnen antippen</div>
     </div>`;
   }).join('');
@@ -228,6 +253,11 @@ function saveOrder(){
   const people=document.querySelector('#orderPeople').value;
   const location=document.querySelector('#orderLocation').value.trim();
   const price=document.querySelector('#orderPrice').value;
+  const phone=document.querySelector('#orderPhone').value.trim();
+  const email=document.querySelector('#orderEmail').value.trim();
+  const street=document.querySelector('#orderStreet').value.trim();
+  const payment=document.querySelector('#orderPayment').value;
+  const notes=document.querySelector('#orderNotes').value.trim();
 
   if(!customer || !date || !time || !people || !location || !price){
     toast('Bitte alle Felder ausfüllen.');
@@ -242,6 +272,11 @@ function saveOrder(){
     people,
     location,
     price,
+    phone,
+    email,
+    street,
+    payment,
+    notes,
     status:'Anfrage'
   });
 
@@ -295,7 +330,29 @@ function openOrder(index){
         <label>Verkaufspreis €
           <input id="editPrice" type="number" step="0.01" value="${escapeHtml(o.price||'')}">
         </label>
+
+        <label>Telefon
+          <input id="editPhone" type="tel" value="${escapeHtml(o.phone||'')}">
+        </label>
+
+        <label>E-Mail
+          <input id="editEmail" type="email" value="${escapeHtml(o.email||'')}">
+        </label>
+
+        <label>Straße / Hausnummer
+          <input id="editStreet" value="${escapeHtml(o.street||'')}">
+        </label>
+
+        <label>Zahlungsstatus
+          <select id="editPayment">
+            ${['Offen','Anzahlung','Bezahlt'].map(s=>`<option ${s===(o.payment||'Offen')?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </label>
       </div>
+
+      <label style="margin-top:12px">Notizen
+        <textarea id="editNotes">${escapeHtml(o.notes||'')}</textarea>
+      </label>
 
       <div class="actions" style="margin-top:14px">
         <button class="btn ok" onclick="updateOrder(${index})">Änderungen speichern</button>
@@ -318,7 +375,12 @@ function updateOrder(index){
     time:document.querySelector('#editTime').value,
     people:document.querySelector('#editPeople').value,
     location:document.querySelector('#editLocation').value.trim(),
-    price:document.querySelector('#editPrice').value
+    price:document.querySelector('#editPrice').value,
+    phone:document.querySelector('#editPhone').value.trim(),
+    email:document.querySelector('#editEmail').value.trim(),
+    street:document.querySelector('#editStreet').value.trim(),
+    payment:document.querySelector('#editPayment').value,
+    notes:document.querySelector('#editNotes').value.trim()
   };
 
   if(!updated.customer || !updated.date || !updated.time || !updated.people || !updated.location || !updated.price){
