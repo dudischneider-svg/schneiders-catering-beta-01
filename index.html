@@ -72,7 +72,7 @@ const state={timer:null,start:null,activeTask:null};
 const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
 const pages={};
 
-function shell(title,sub,body,actions=''){return `<div class="top"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>${body}
+function shell(title,sub,body,actions=''){return `<div class="top"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>${body||''}
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
 
 pages.dashboard=()=>shell('Guten Morgen 👋','Dein nächster Auftrag steht im Mittelpunkt.',
