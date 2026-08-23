@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 3.0 Business Suite</title>
+<title>Schneiders Catering – Version 3.0.1 Business Suite</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -45,7 +45,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
   .card{box-shadow:none;border:0}
   #documentPreview .card{border:0}
 }
-@media(max-width:1100px){
+@media(max-width:850px){
   *{box-sizing:border-box}
   html,body{width:100%;max-width:100%;overflow-x:hidden}
   .app{display:block!important;min-height:100vh;width:100%!important}
@@ -126,7 +126,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 .request-card{border-left:6px solid #f59e0b}
 .request-card.accepted{border-left-color:#16a34a}.request-card.rejected{border-left-color:#9ca3af}
 .inline-check{display:flex;align-items:center;gap:10px}.inline-check input{width:auto;margin:0}
-@media(max-width:1100px){.ops-grid{grid-template-columns:1fr!important}}
+@media(max-width:850px){.ops-grid{grid-template-columns:1fr!important}}
 
 .auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#17191c}
 .auth-card{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 16px 50px #0005}
@@ -179,7 +179,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0 Business Suite</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0.1 Business Suite</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -3034,8 +3034,23 @@ function render(page){
   document.querySelectorAll('#nav button').forEach(b=>{
     b.classList.toggle('active',b.dataset.page===page);
   });
-  document.getElementById('main').innerHTML=pages[page]();
-  window.scrollTo(0,0);
+
+  const main=document.getElementById('main');
+  if(!main || !pages[page]){
+    console.error('Seite nicht gefunden:',page);
+    return;
+  }
+
+  main.innerHTML=pages[page]();
+
+  // Auf Desktop oben bleiben. Auf Handy liegt der Inhalt unter der Navigation:
+  // nach einem Menü-Klick direkt zum Inhalt springen.
+  if(window.innerWidth<=850){
+    setTimeout(()=>main.scrollIntoView({behavior:'smooth',block:'start'}),0);
+  }else{
+    window.scrollTo(0,0);
+  }
+
   if(page==='ops') setTimeout(()=>loadOpsCenter(),0);
   if(page==='expenses') setTimeout(()=>loadExpenses(),0);
   if(page==='requests') setTimeout(()=>loadBookingRequests(),0);
