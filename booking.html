@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buchungsanfrage – Schneiders Catering</title>
+  <title>Buchungsanfrage – Schneiders Catering Live-Catering</title>
 
   <style>
     * { box-sizing: border-box; }
@@ -17,15 +17,43 @@
     }
 
     .box {
-      max-width: 650px;
+      max-width: 680px;
       margin: 30px auto;
-      background: white;
+      background: #fff;
       padding: 28px;
       border-radius: 18px;
       box-shadow: 0 4px 20px rgba(0,0,0,.10);
     }
 
-    h1 { margin-top: 0; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .logo-placeholder {
+      width: 58px;
+      height: 58px;
+      border-radius: 14px;
+      background: #f2e4de;
+      display: grid;
+      place-items: center;
+      font-size: 28px;
+      flex: 0 0 auto;
+    }
+
+    h1 { margin: 0; }
+    .subtitle { margin: 8px 0 20px; color: #666; }
+
+    .required-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
 
     label {
       display: block;
@@ -43,7 +71,7 @@
     }
 
     textarea {
-      min-height: 100px;
+      min-height: 110px;
       resize: vertical;
     }
 
@@ -65,9 +93,48 @@
       cursor: not-allowed;
     }
 
+    .privacy-box {
+      margin-top: 20px;
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      background: #fafafa;
+    }
+
+    .privacy-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-weight: normal;
+      margin: 0;
+    }
+
+    .privacy-check input {
+      width: auto;
+      margin-top: 3px;
+    }
+
+    details {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: bold;
+      color: #333;
+    }
+
     #meldung {
       margin-top: 18px;
       font-weight: bold;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #666;
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -76,41 +143,79 @@
 
 <div class="box">
 
-  <h1>🍕 Schneiders Catering</h1>
-  <p>Unverbindliche Catering-Anfrage senden</p>
+  <div class="brand">
+    <div class="logo-placeholder">🍕</div>
+    <div>
+      <h1>Schneiders Catering</h1>
+      <div class="subtitle">Live-Catering · unverbindliche Buchungsanfrage</div>
+    </div>
+  </div>
+
+  <div class="required-note">
+    Felder mit <strong>*</strong> sind erforderlich, damit wir deine Anfrage prüfen und dich dazu kontaktieren können.
+  </div>
 
   <form id="bookingForm">
 
-    <label>Name *</label>
-    <input id="name" required>
+    <label for="name">Name / Firma *</label>
+    <input id="name" required maxlength="200">
 
-    <label>E-Mail *</label>
-    <input id="email" type="email" required>
+    <label for="email">E-Mail *</label>
+    <input id="email" type="email" required maxlength="320">
 
-    <label>Telefon</label>
-    <input id="phone" type="tel">
+    <label for="phone">Telefon *</label>
+    <input id="phone" type="tel" required maxlength="50">
 
-    <label>Datum der Veranstaltung *</label>
+    <label for="event_date">Datum der Veranstaltung *</label>
     <input id="event_date" type="date" required>
 
-    <label>Uhrzeit</label>
-    <input id="event_time" type="time">
+    <label for="event_time">Uhrzeit *</label>
+    <input id="event_time" type="time" required>
 
-    <label>Veranstaltungsort</label>
-    <input id="location">
+    <label for="location">Veranstaltungsort *</label>
+    <input id="location" required maxlength="300"
+           placeholder="Ort / Veranstaltungsstätte">
 
-    <label>Personenzahl *</label>
-    <input id="people" type="number" min="1" required>
+    <label for="people">Personenzahl *</label>
+    <input id="people" type="number" min="1" max="5000" required>
 
-    <label>Nachricht / Wünsche</label>
-    <textarea id="message"
-      placeholder="Erzählen Sie uns kurz etwas über Ihre Veranstaltung ..."></textarea>
+    <label for="pizza_count">Gewünschte Menge / Pizzaanzahl *</label>
+    <input id="pizza_count" type="number" min="1" max="5000" required>
+    <div class="hint">Später können hier zusätzlich verschiedene Catering-Angebote und Sorten auswählbar gemacht werden.</div>
 
-    <label style="font-weight:normal;">
-      <input id="privacy" type="checkbox"
-             style="width:auto;margin-right:8px;" required>
-      Ich stimme der Verarbeitung meiner Angaben zur Bearbeitung der Anfrage zu. *
-    </label>
+    <label for="message">Nachricht / Wünsche</label>
+    <textarea id="message" maxlength="4000"
+      placeholder="Zum Beispiel gewünschte Sorten, Ablauf, Besonderheiten oder weitere Wünsche ..."></textarea>
+
+    <div class="privacy-box">
+      <label class="privacy-check">
+        <input id="privacy" type="checkbox" required>
+        <span>
+          Ich habe die Datenschutzhinweise zur Buchungsanfrage zur Kenntnis genommen. *
+        </span>
+      </label>
+
+      <details>
+        <summary>Was passiert mit meinen Daten?</summary>
+        <p>
+          Deine Angaben werden verwendet, um deine Catering-Anfrage zu bearbeiten,
+          dich zu kontaktieren und – falls daraus ein Auftrag entsteht – das Catering
+          vorzubereiten und durchzuführen.
+        </p>
+        <p>
+          Es werden nur die Angaben verarbeitet, die für die Anfrage und eine mögliche
+          Auftragsabwicklung benötigt werden. Die Daten werden nicht für Werbung verwendet,
+          sofern du dafür nicht später separat einwilligst.
+        </p>
+        <p>
+          Technisch werden die Angaben über die für diese Website eingesetzten Hosting-
+          und Datenbankdienste verarbeitet. Vor dem produktiven Einsatz sollte hier noch
+          die vollständige Datenschutzerklärung mit Verantwortlichem, Kontakt,
+          Rechtsgrundlage, Speicherdauer, eingesetzten Dienstleistern und Betroffenenrechten
+          verlinkt werden.
+        </p>
+      </details>
+    </div>
 
     <button id="submitButton" type="submit">
       Buchungsanfrage senden
@@ -136,16 +241,20 @@ form.addEventListener("submit", async (event) => {
   button.textContent = "Wird gesendet ...";
   meldung.textContent = "";
 
+  const pizzaCount = Number(document.getElementById("pizza_count").value);
+
   const data = {
     name: document.getElementById("name").value.trim(),
     email: document.getElementById("email").value.trim(),
     phone: document.getElementById("phone").value.trim(),
     event_date: document.getElementById("event_date").value,
-    event_time: document.getElementById("event_time").value || null,
+    event_time: document.getElementById("event_time").value,
     location: document.getElementById("location").value.trim(),
-    message: document.getElementById("message").value.trim(),
     people: Number(document.getElementById("people").value),
-    pizza_items: [],
+    pizza_items: [
+      { name: "Pizza / Menge gesamt", count: pizzaCount }
+    ],
+    notes: document.getElementById("message").value.trim(),
     privacy_accepted: document.getElementById("privacy").checked
   };
 
@@ -166,14 +275,14 @@ form.addEventListener("submit", async (event) => {
 
     meldung.style.color = "green";
     meldung.textContent =
-      "✓ Vielen Dank! Ihre Buchungsanfrage wurde erfolgreich übermittelt.";
+      "✓ Vielen Dank! Deine Buchungsanfrage wurde erfolgreich übermittelt.";
 
     form.reset();
 
   } catch (error) {
     meldung.style.color = "red";
     meldung.textContent =
-      "Die Anfrage konnte leider nicht gesendet werden. Bitte versuchen Sie es erneut.";
+      "Die Anfrage konnte leider nicht gesendet werden. Bitte versuche es erneut.";
   }
 
   button.disabled = false;
