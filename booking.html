@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buchungsanfrage – Schneiders Catering</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    .box {
+      max-width: 650px;
+      margin: 30px auto;
+      background: white;
+      padding: 28px;
+      border-radius: 18px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.10);
+    }
+
+    h1 { margin-top: 0; }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-top: 16px;
+      margin-bottom: 6px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 9px;
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 22px;
+      padding: 15px;
+      border: 0;
+      border-radius: 10px;
+      background: #187a3b;
+      color: white;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    #meldung {
+      margin-top: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>🍕 Schneiders Catering</h1>
+  <p>Unverbindliche Catering-Anfrage senden</p>
+
+  <form id="bookingForm">
+
+    <label>Name *</label>
+    <input id="name" required>
+
+    <label>E-Mail *</label>
+    <input id="email" type="email" required>
+
+    <label>Telefon</label>
+    <input id="phone" type="tel">
+
+    <label>Datum der Veranstaltung *</label>
+    <input id="event_date" type="date" required>
+
+    <label>Uhrzeit</label>
+    <input id="event_time" type="time">
+
+    <label>Veranstaltungsort</label>
+    <input id="location">
+
+    <label>Personenzahl *</label>
+    <input id="people" type="number" min="1" required>
+
+    <label>Nachricht / Wünsche</label>
+    <textarea id="message"
+      placeholder="Erzählen Sie uns kurz etwas über Ihre Veranstaltung ..."></textarea>
+
+    <label style="font-weight:normal;">
+      <input id="privacy" type="checkbox"
+             style="width:auto;margin-right:8px;" required>
+      Ich stimme der Verarbeitung meiner Angaben zur Bearbeitung der Anfrage zu. *
+    </label>
+
+    <button id="submitButton" type="submit">
+      Buchungsanfrage senden
+    </button>
+
+    <div id="meldung"></div>
+
+  </form>
+</div>
+
+<script>
+const ENDPOINT =
+  "https://lptohpitlidsvmtdbfks.supabase.co/functions/v1/submit-booking-request";
+
+const form = document.getElementById("bookingForm");
+const meldung = document.getElementById("meldung");
+const button = document.getElementById("submitButton");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  button.disabled = true;
+  button.textContent = "Wird gesendet ...";
+  meldung.textContent = "";
+
+  const data = {
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    event_date: document.getElementById("event_date").value,
+    event_time: document.getElementById("event_time").value || null,
+    location: document.getElementById("location").value.trim(),
+    message: document.getElementById("message").value.trim(),
+    people: Number(document.getElementById("people").value),
+    pizza_items: [],
+    privacy_accepted: document.getElementById("privacy").checked
+  };
+
+  try {
+    const response = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || "Anfrage konnte nicht gesendet werden.");
+    }
+
+    meldung.style.color = "green";
+    meldung.textContent =
+      "✓ Vielen Dank! Ihre Buchungsanfrage wurde erfolgreich übermittelt.";
+
+    form.reset();
+
+  } catch (error) {
+    meldung.style.color = "red";
+    meldung.textContent =
+      "Die Anfrage konnte leider nicht gesendet werden. Bitte versuchen Sie es erneut.";
+  }
+
+  button.disabled = false;
+  button.textContent = "Buchungsanfrage senden";
+});
+</script>
+
+</body>
+</html>
