@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 3.0.2 Business Suite</title>
+<title>Schneiders Catering – Version 3.0.3 Business Suite</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -130,6 +130,13 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 .ops-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .ops-progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}.ops-progress>span{display:block;height:100%;background:#287a4b}
 .receipt-thumb{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#f3f4f6}
+
+.share-box{margin-bottom:16px}
+.share-link{font-size:13px;word-break:break-all;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px}
+.qr-wrap{display:none;margin-top:14px;text-align:center}
+.qr-wrap.show{display:block}
+.qr-wrap canvas{max-width:240px;width:100%!important;height:auto!important;background:white;padding:10px;border-radius:12px;border:1px solid var(--line)}
+
 .request-card{border-left:6px solid #f59e0b}
 .request-card.accepted{border-left-color:#16a34a}.request-card.rejected{border-left-color:#9ca3af}
 .inline-check{display:flex;align-items:center;gap:10px}.inline-check input{width:auto;margin:0}
@@ -186,7 +193,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0.2 Business Suite</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0.3 Business Suite</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -218,6 +225,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 <script>
 const state={timer:null,start:null,activeTask:null};
 const money=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
@@ -937,6 +945,47 @@ async function deleteExpense(id,encodedPath=''){
   loadExpenses();
 }
 
+
+function getBookingPublicUrl(){
+  return `${window.location.origin}/booking.html`;
+}
+
+async function copyBookingLink(){
+  const url=getBookingPublicUrl();
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('Buchungslink kopiert.');
+  }catch(e){
+    prompt('Buchungslink kopieren:',url);
+  }
+}
+
+function shareBookingWhatsApp(){
+  const url=getBookingPublicUrl();
+  const text=`Hallo, hier kannst du deine Catering-Anfrage direkt an Schneiders Catering senden: ${url}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank','noopener');
+}
+
+async function toggleBookingQr(){
+  const wrap=document.getElementById('bookingQrWrap');
+  const canvas=document.getElementById('bookingQrCanvas');
+  if(!wrap||!canvas) return;
+
+  const showing=wrap.classList.toggle('show');
+  if(!showing) return;
+
+  try{
+    if(!window.QRCode) throw new Error('QR-Code-Bibliothek nicht geladen.');
+    await QRCode.toCanvas(canvas,getBookingPublicUrl(),{
+      width:240,
+      margin:2,
+      errorCorrectionLevel:'M'
+    });
+  }catch(e){
+    wrap.innerHTML=`<div class="security-warn">QR-Code konnte nicht erzeugt werden. Der Link kann trotzdem kopiert und verschickt werden.</div>`;
+  }
+}
+
 async function loadBookingRequests(){
   const list=document.getElementById('requestList');
   if(!list||!sb||!currentUser) return;
@@ -1253,6 +1302,29 @@ pages.expenses=()=>shell('Belege & Ausgaben','Kassenbons, Tankbelege und sonstig
 `);
 
 pages.requests=()=>shell('Buchungsanfragen','Öffentliche Anfragen prüfen, bearbeiten und in Aufträge übernehmen.',`
+<div class="card share-box">
+  <div class="row">
+    <div>
+      <h2>🔗 Buchungsanfrage teilen</h2>
+      <p class="muted">Diesen Link kannst du an Kunden schicken. Er führt nur zum öffentlichen Anfrageformular.</p>
+    </div>
+    <span class="pill">öffentlich</span>
+  </div>
+
+  <div id="bookingPublicLink" class="share-link">${escapeHtml(getBookingPublicUrl())}</div>
+
+  <div class="actions" style="margin-top:12px">
+    <button class="btn ok" onclick="copyBookingLink()">Link kopieren</button>
+    <button class="btn secondary" onclick="shareBookingWhatsApp()">WhatsApp</button>
+    <button class="btn secondary" onclick="toggleBookingQr()">QR-Code anzeigen</button>
+  </div>
+
+  <div id="bookingQrWrap" class="qr-wrap">
+    <canvas id="bookingQrCanvas"></canvas>
+    <p class="muted">Der QR-Code führt direkt zum Buchungsformular.</p>
+  </div>
+</div>
+
 <div class="card">
   <div class="row">
     <div>
