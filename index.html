@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 2.2.1 Secure Cloud</title>
+<title>Schneiders Catering – Version 3.0 Business Suite</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -117,6 +117,17 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 .mfa-code{font-size:20px;letter-spacing:.15em;text-align:center}
 .passkey-login{width:100%;margin-top:10px}
 
+
+.section-note{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.badge-red{background:#fee2e2;color:#991b1b}.badge-green{background:#dcfce7;color:#166534}.badge-orange{background:#ffedd5;color:#9a3412}
+.ops-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ops-progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}.ops-progress>span{display:block;height:100%;background:#287a4b}
+.receipt-thumb{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#f3f4f6}
+.request-card{border-left:6px solid #f59e0b}
+.request-card.accepted{border-left-color:#16a34a}.request-card.rejected{border-left-color:#9ca3af}
+.inline-check{display:flex;align-items:center;gap:10px}.inline-check input{width:auto;margin:0}
+@media(max-width:1100px){.ops-grid{grid-template-columns:1fr!important}}
+
 .auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#17191c}
 .auth-card{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 16px 50px #0005}
 .auth-card h1{margin:0 0 6px}.auth-card p{color:#6b7280}
@@ -168,7 +179,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 2.2.1 Secure Cloud</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0 Business Suite</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -179,6 +190,9 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
     <button data-page="shopping">🛒 Einkauf</button>
     <button data-page="calendar">📅 Kalender</button>
     <button data-page="docs">📄 Angebote & Rechnungen</button>
+    <button data-page="ops">✅ Einsatz-Zentrale</button>
+    <button data-page="expenses">🧾 Belege & Ausgaben</button>
+    <button data-page="requests">📨 Buchungsanfragen</button>
     <button data-page="stats">📊 Auswertung</button>
     <button data-page="settings">⚙️ Einstellungen</button>
   </nav>
@@ -205,8 +219,8 @@ const pages={};
 
 // ===== SUPABASE CLOUD KONFIGURATION =====
 // Ersetze NUR die beiden Werte zwischen den Anführungszeichen.
-const SUPABASE_URL='https://lptohpitlidsvmtdbfks.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD';
+const SUPABASE_URL='';
+const SUPABASE_PUBLISHABLE_KEY='';
 let sb=null;
 let currentUser=null;
 let cloudSyncBusy=false;
@@ -215,8 +229,8 @@ let pendingEnrollFactorId=null;
 let mfaEnrollStarted=false;
 
 function cloudConfigured(){
-  return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co')
-    && !SUPABASE_PUBLISHABLE_KEY.includes('__SUPABASE_') && SUPABASE_PUBLISHABLE_KEY.length>20;
+  return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('https://lptohpitlidsvmtdbfks.supabase.co')
+    && !SUPABASE_PUBLISHABLE_KEY.includes('sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD') && SUPABASE_PUBLISHABLE_KEY.length>20;
 }
 
 function authMessage(message){
@@ -593,7 +607,7 @@ async function syncCustomersToCloud(customers=getCustomers()){
 
 async function syncOrdersToCloud(orders=getOrders()){
   return replaceUserRows('orders',orders.map(o=>({
-    customer_name:o.customer||'',status:o.status||'Anfrage',event_date:o.date||null,event_time:o.time||null,
+    app_id:o.appId||null,customer_name:o.customer||'',status:o.status||'Anfrage',event_date:o.date||null,event_time:o.time||null,
     people:Number(o.people||0),location:o.location||null,street:o.street||null,phone:o.phone||null,email:o.email||null,
     price:Number(o.price||0),payment_status:o.payment||'Offen',hours:Number(o.hours||0),km:Number(o.km||0),
     notes:o.notes||null,recipe_items:o.recipeItems||legacyPizzasToRecipeItems(o.pizzas)
@@ -652,7 +666,7 @@ async function loadCloudData(force=false){
       localStorage.setItem('customers',JSON.stringify(cRes.data.map(c=>({name:c.name||'',street:c.street||'',zip:c.zip||'',city:c.city||'',phone:c.phone||'',email:c.email||'',notes:c.notes||''}))));
     }
     if(force || oRes.data.length){
-      localStorage.setItem('orders',JSON.stringify(oRes.data.map(o=>({customer:o.customer_name||'',status:o.status||'Anfrage',date:o.event_date||'',time:(o.event_time||'').slice(0,5),people:o.people||0,location:o.location||'',street:o.street||'',phone:o.phone||'',email:o.email||'',price:o.price||0,payment:o.payment_status||'Offen',hours:o.hours||0,km:o.km||0,notes:o.notes||'',recipeItems:Array.isArray(o.recipe_items)?o.recipe_items:[]}))));
+      localStorage.setItem('orders',JSON.stringify(oRes.data.map(o=>({appId:o.app_id||crypto.randomUUID(),customer:o.customer_name||'',status:o.status||'Anfrage',date:o.event_date||'',time:(o.event_time||'').slice(0,5),people:o.people||0,location:o.location||'',street:o.street||'',phone:o.phone||'',email:o.email||'',price:o.price||0,payment:o.payment_status||'Offen',hours:o.hours||0,km:o.km||0,notes:o.notes||'',recipeItems:Array.isArray(o.recipe_items)?o.recipe_items:[]}))));
     }
     if(force || iRes.data.length){
       localStorage.setItem('ingredients',JSON.stringify(iRes.data.map(i=>({name:i.name||'',packGrams:Number(i.package_size||0),packPrice:Number(i.package_price||0)}))));
@@ -674,6 +688,299 @@ async function reloadFromCloud(){
   render(state.currentPage||'dashboard');
   toast('Cloud-Daten geladen.');
 }
+
+
+function ensureOrderAppIds(){
+  const orders=getOrders();
+  let changed=false;
+  orders.forEach(o=>{
+    if(!o.appId){
+      o.appId=(crypto.randomUUID?crypto.randomUUID():'ord-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+      changed=true;
+    }
+  });
+  if(changed) localStorage.setItem('orders',JSON.stringify(orders));
+  return orders;
+}
+
+function renderOpsOrderOptions(includeBlank=false){
+  const orders=ensureOrderAppIds();
+  const blank=includeBlank?'<option value="">— keinem Auftrag —</option>':'';
+  if(!orders.length) return blank+'<option value="">Noch keine Aufträge</option>';
+  return blank+orders.map(o=>`<option value="${escapeHtml(o.appId)}">${escapeHtml(o.customer||'Ohne Namen')} · ${escapeHtml(o.date||'')}</option>`).join('');
+}
+
+function findOrderByAppId(appId){
+  return ensureOrderAppIds().find(o=>o.appId===appId)||null;
+}
+
+function defaultChecklist(order){
+  const items=[
+    'Auftragsdetails geprüft','Einkauf abgeschlossen','Teig vorbereitet','Zutaten portioniert',
+    'Fahrzeug beladen','Anfahrt geplant','Standort / Strom / Gas geklärt','Aufbau abgeschlossen',
+    'Catering durchgeführt','Abbau abgeschlossen','Fahrzeug ausgeladen','Reinigung erledigt',
+    'Rechnung erstellt','Zahlung geprüft'
+  ];
+  return items.map((title,index)=>({title,done:false,sort:index}));
+}
+
+async function fetchChecklist(orderAppId){
+  const {data,error}=await sb.from('checklist_items').select('*').eq('user_id',currentUser.id).eq('order_app_id',orderAppId).order('sort',{ascending:true});
+  if(error) throw error;
+  if(data?.length) return data;
+  const order=findOrderByAppId(orderAppId);
+  const defaults=defaultChecklist(order);
+  const {data:inserted,error:insertError}=await sb.from('checklist_items').insert(defaults.map(x=>({
+    user_id:currentUser.id,order_app_id:orderAppId,title:x.title,done:false,sort:x.sort
+  }))).select();
+  if(insertError) throw insertError;
+  return inserted||[];
+}
+
+async function loadOpsCenter(){
+  const wrap=document.getElementById('opsCenterWrap');
+  if(!wrap||!sb||!currentUser) return;
+  const select=document.getElementById('opsOrderSelect');
+  const appId=select?.value||ensureOrderAppIds()[0]?.appId;
+  if(!appId){wrap.innerHTML='<p class="muted">Noch kein Auftrag vorhanden.</p>';return;}
+  if(select && !select.value) select.value=appId;
+  const order=findOrderByAppId(appId);
+  if(!order){wrap.innerHTML='<p class="muted">Auftrag nicht gefunden.</p>';return;}
+
+  try{
+    const [checklistRes,helperRes,expenseRes]=await Promise.all([
+      fetchChecklist(appId),
+      sb.from('helper_assignments').select('*').eq('user_id',currentUser.id).eq('order_app_id',appId).order('created_at',{ascending:true}),
+      sb.from('expenses').select('*').eq('user_id',currentUser.id).eq('order_app_id',appId).order('expense_date',{ascending:true})
+    ]);
+    if(helperRes.error) throw helperRes.error;
+    if(expenseRes.error) throw expenseRes.error;
+
+    const checklist=checklistRes||[];
+    const done=checklist.filter(x=>x.done).length;
+    const helpers=helperRes.data||[];
+    const expenses=expenseRes.data||[];
+    const actualExpenses=expenses.reduce((s,x)=>s+Number(x.amount||0),0);
+    const plannedPurchase=calcShoppingPurchaseTotal(order);
+    const settings=getCostSettings();
+    const plannedLabor=Number(order.hours||0)*settings.hourlyRate;
+    const plannedVehicle=Number(order.km||0)*settings.kmRate;
+    const helperCosts=helpers.reduce((s,h)=>s+Number(h.hours||0)*Number(h.hourly_rate||0),0);
+    const actualContribution=Number(order.price||0)-actualExpenses-helperCosts;
+    const pct=checklist.length?Math.round(done/checklist.length*100):0;
+
+    wrap.innerHTML=`<div class="ops-grid">
+      <div class="card">
+        <div class="row"><h3>✅ Checkliste</h3><span class="pill">${done}/${checklist.length}</span></div>
+        <div class="ops-progress"><span style="width:${pct}%"></span></div>
+        <div class="list" style="margin-top:12px">
+          ${checklist.map(x=>`<label class="item inline-check">
+            <input type="checkbox" ${x.done?'checked':''} onchange="toggleChecklistItem('${x.id}',this.checked)">
+            <span style="${x.done?'text-decoration:line-through;opacity:.65':''}">${escapeHtml(x.title)}</span>
+          </label>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>👷 Helferplanung</h3>
+        <div class="formgrid">
+          <label>Name<input id="helperName" placeholder="Name"></label>
+          <label>Stunden<input id="helperHours" type="number" min="0" step="0.25"></label>
+          <label>€/Std.<input id="helperRate" type="number" min="0" step="0.01"></label>
+        </div>
+        <button class="btn ok" style="margin-top:10px" onclick="addHelper('${appId}')">Helfer hinzufügen</button>
+        <div class="list" style="margin-top:12px">
+          ${helpers.length?helpers.map(h=>`<div class="item row">
+            <div><strong>${escapeHtml(h.name)}</strong><span class="muted">${Number(h.hours||0)} Std. × ${money(Number(h.hourly_rate||0))}</span></div>
+            <button class="btn secondary" onclick="deleteHelper('${h.id}')">Löschen</button>
+          </div>`).join(''):'<p class="muted">Noch keine Helfer eingeplant.</p>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🛒 Material & Vorbereitung</h3>
+        ${renderOrderCalcFromItems(order.recipeItems||legacyPizzasToRecipeItems(order.pizzas))}
+        <button class="btn secondary" onclick="go('shopping')">Zur Einkaufsliste</button>
+      </div>
+
+      <div class="card">
+        <h3>💶 Auftrag – Plan vs. Ist</h3>
+        <div class="row"><span>Verkaufspreis</span><strong>${money(Number(order.price||0))}</strong></div>
+        <div class="row" style="margin-top:7px"><span>Plan Einkauf</span><strong>${money(plannedPurchase)}</strong></div>
+        <div class="row" style="margin-top:7px"><span>Plan Arbeit</span><strong>${money(plannedLabor)}</strong></div>
+        <div class="row" style="margin-top:7px"><span>Plan Fahrzeug</span><strong>${money(plannedVehicle)}</strong></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
+        <div class="row"><span>Erfasste Ausgaben</span><strong>${money(actualExpenses)}</strong></div>
+        <div class="row" style="margin-top:7px"><span>Helferkosten</span><strong>${money(helperCosts)}</strong></div>
+        <div class="row" style="margin-top:10px"><span><b>Deckungsbeitrag aktuell</b></span><strong>${money(actualContribution)}</strong></div>
+        <button class="btn secondary" style="margin-top:12px" onclick="go('expenses')">Belege / Ausgaben öffnen</button>
+      </div>
+    </div>`;
+  }catch(error){
+    wrap.innerHTML=`<div class="security-warn">Einsatz-Zentrale konnte nicht geladen werden: ${escapeHtml(error.message||String(error))}</div>`;
+  }
+}
+
+async function toggleChecklistItem(id,done){
+  const {error}=await sb.from('checklist_items').update({done}).eq('id',id).eq('user_id',currentUser.id);
+  if(error) return cloudError('Checkliste',error);
+  loadOpsCenter();
+}
+
+async function addHelper(orderAppId){
+  const name=document.getElementById('helperName')?.value.trim();
+  const hours=Number(document.getElementById('helperHours')?.value||0);
+  const rate=Number(document.getElementById('helperRate')?.value||0);
+  if(!name){toast('Bitte Namen eingeben.');return;}
+  const {error}=await sb.from('helper_assignments').insert({
+    user_id:currentUser.id,order_app_id:orderAppId,name,hours,hourly_rate:rate
+  });
+  if(error) return cloudError('Helfer',error);
+  toast('Helfer gespeichert.');
+  loadOpsCenter();
+}
+
+async function deleteHelper(id){
+  const {error}=await sb.from('helper_assignments').delete().eq('id',id).eq('user_id',currentUser.id);
+  if(error) return cloudError('Helfer',error);
+  loadOpsCenter();
+}
+
+async function saveExpense(){
+  const msg=document.getElementById('expenseMsg');
+  try{
+    const expense_date=document.getElementById('expenseDate').value;
+    const category=document.getElementById('expenseCategory').value;
+    const vendor=document.getElementById('expenseVendor').value.trim();
+    const amount=Number(document.getElementById('expenseAmount').value||0);
+    const order_app_id=document.getElementById('expenseOrder').value||null;
+    const note=document.getElementById('expenseNote').value.trim();
+    const file=document.getElementById('expenseFile').files?.[0]||null;
+    if(!expense_date||!vendor||amount<=0){toast('Datum, Händler/Beschreibung und Betrag eingeben.');return;}
+
+    let file_path=null;
+    if(file){
+      const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      file_path=`${currentUser.id}/${new Date().getFullYear()}/${crypto.randomUUID()}-${safeName}`;
+      const {error:uploadError}=await sb.storage.from('receipts').upload(file_path,file,{upsert:false,contentType:file.type||undefined});
+      if(uploadError) throw uploadError;
+    }
+
+    const {error}=await sb.from('expenses').insert({
+      user_id:currentUser.id,order_app_id,expense_date,category,vendor,amount,note,file_path
+    });
+    if(error) throw error;
+    if(msg) msg.textContent='Gespeichert.';
+    toast('Ausgabe gespeichert.');
+    document.getElementById('expenseVendor').value='';
+    document.getElementById('expenseAmount').value='';
+    document.getElementById('expenseNote').value='';
+    document.getElementById('expenseFile').value='';
+    loadExpenses();
+  }catch(error){
+    if(msg) msg.textContent=error.message||String(error);
+    cloudError('Beleg',error);
+  }
+}
+
+async function loadExpenses(){
+  const list=document.getElementById('expenseList');
+  if(!list||!sb||!currentUser) return;
+  const {data,error}=await sb.from('expenses').select('*').eq('user_id',currentUser.id).order('expense_date',{ascending:false}).order('created_at',{ascending:false});
+  if(error){list.innerHTML='<div class="security-warn">'+escapeHtml(error.message)+'</div>';return;}
+  const rows=data||[];
+  const total=rows.reduce((s,x)=>s+Number(x.amount||0),0);
+  list.innerHTML=`<div class="kpi"><span class="muted">Gesamtausgaben erfasst</span><br><strong>${money(total)}</strong></div>
+    <div class="list" style="margin-top:12px">
+      ${rows.length?rows.map(x=>`<div class="item">
+        <div class="row">
+          <div><strong>${escapeHtml(x.vendor||'Ausgabe')}</strong><span class="muted">${escapeHtml(x.expense_date||'')} · ${escapeHtml(x.category||'')}</span></div>
+          <strong>${money(Number(x.amount||0))}</strong>
+        </div>
+        ${x.note?`<div class="muted" style="margin-top:6px">${escapeHtml(x.note)}</div>`:''}
+        <div class="actions" style="margin-top:8px">
+          ${x.file_path?`<button class="btn secondary" onclick="openReceipt('${encodeURIComponent(x.file_path)}')">Beleg öffnen</button>`:''}
+          <button class="btn secondary" onclick="deleteExpense('${x.id}','${x.file_path?encodeURIComponent(x.file_path):''}')">Löschen</button>
+        </div>
+      </div>`).join(''):'<p class="muted">Noch keine Belege erfasst.</p>'}
+    </div>`;
+}
+
+async function openReceipt(encodedPath){
+  const path=decodeURIComponent(encodedPath);
+  const {data,error}=await sb.storage.from('receipts').createSignedUrl(path,60);
+  if(error) return cloudError('Beleg öffnen',error);
+  window.open(data.signedUrl,'_blank','noopener');
+}
+
+async function deleteExpense(id,encodedPath=''){
+  if(!confirm('Ausgabe wirklich löschen?')) return;
+  if(encodedPath){
+    const path=decodeURIComponent(encodedPath);
+    await sb.storage.from('receipts').remove([path]);
+  }
+  const {error}=await sb.from('expenses').delete().eq('id',id).eq('user_id',currentUser.id);
+  if(error) return cloudError('Ausgabe löschen',error);
+  loadExpenses();
+}
+
+async function loadBookingRequests(){
+  const list=document.getElementById('requestList');
+  if(!list||!sb||!currentUser) return;
+  const {data,error}=await sb.from('booking_requests').select('*').order('created_at',{ascending:false});
+  if(error){list.innerHTML='<div class="security-warn">'+escapeHtml(error.message)+'</div>';return;}
+  const rows=data||[];
+  list.innerHTML=`<div class="list">
+    ${rows.length?rows.map(r=>`<div class="item request-card ${r.status==='accepted'?'accepted':r.status==='rejected'?'rejected':''}">
+      <div class="row">
+        <div>
+          <strong>${escapeHtml(r.name||'Anfrage')}</strong>
+          <span class="muted">${escapeHtml(r.event_date||'')} · ${escapeHtml((r.event_time||'').slice(0,5))} · ${Number(r.people||0)} Personen</span>
+        </div>
+        <span class="pill">${escapeHtml(r.status||'new')}</span>
+      </div>
+      <div class="muted">${escapeHtml(r.email||'')} · ${escapeHtml(r.phone||'')} · ${escapeHtml(r.location||'')}</div>
+      ${Array.isArray(r.pizza_items)&&r.pizza_items.length?`<div style="margin-top:6px">🍕 ${r.pizza_items.map(x=>`${Number(x.count||0)}× ${escapeHtml(x.name||'')}`).join(' · ')}</div>`:''}
+      ${r.notes?`<div class="section-note">${escapeHtml(r.notes)}</div>`:''}
+      <div class="actions">
+        ${r.status==='new'?`<button class="btn ok" onclick="acceptBookingRequest('${r.id}')">Als Auftrag übernehmen</button>`:''}
+        ${r.status==='new'?`<button class="btn secondary" onclick="setBookingStatus('${r.id}','rejected')">Ablehnen</button>`:''}
+        <button class="btn secondary" onclick="deleteBookingRequest('${r.id}')">Löschen</button>
+      </div>
+    </div>`).join(''):'<p class="muted">Keine Buchungsanfragen vorhanden.</p>'}
+  </div>`;
+}
+
+async function setBookingStatus(id,status){
+  const {error}=await sb.from('booking_requests').update({status}).eq('id',id);
+  if(error) return cloudError('Buchungsanfrage',error);
+  loadBookingRequests();
+}
+
+async function acceptBookingRequest(id){
+  const {data:r,error}=await sb.from('booking_requests').select('*').eq('id',id).single();
+  if(error) return cloudError('Buchungsanfrage',error);
+  const orders=ensureOrderAppIds();
+  orders.push({
+    appId:crypto.randomUUID?crypto.randomUUID():'ord-'+Date.now(),
+    customer:r.name||'',status:'Anfrage',date:r.event_date||'',time:(r.event_time||'').slice(0,5),
+    people:r.people||0,location:r.location||'',street:r.street||'',phone:r.phone||'',email:r.email||'',
+    price:'',payment:'Offen',hours:0,km:0,notes:r.notes||'',
+    recipeItems:Array.isArray(r.pizza_items)?r.pizza_items.map(x=>({recipeName:x.name,count:Number(x.count||0)})):[]
+  });
+  saveOrders(orders);
+  await setBookingStatus(id,'accepted');
+  toast('Anfrage als Auftrag übernommen.');
+  go('orders');
+}
+
+async function deleteBookingRequest(id){
+  if(!confirm('Buchungsanfrage wirklich löschen?')) return;
+  const {error}=await sb.from('booking_requests').delete().eq('id',id);
+  if(error) return cloudError('Buchungsanfrage löschen',error);
+  loadBookingRequests();
+}
+
 
 function shell(title,sub,body,actions=''){
   return `<div class="top"><div><h1>${title}</h1><p>${sub||''}</p></div><div class="actions">${actions||''}</div></div>${body||''}`;
@@ -882,6 +1189,66 @@ pages.docs=()=>shell('Dokumente','Angebote und Rechnungen direkt aus gespeichert
   <div id="documentPreview" style="margin-top:16px">
     ${renderDocumentPreview(0,'offer')}
   </div>
+</div>
+`);
+
+
+pages.ops=()=>shell('Einsatz-Zentrale','Checklisten, Helfer, Material und echte Kosten pro Auftrag.',`
+<div class="card">
+  <div class="row">
+    <h2>Auftrag auswählen</h2>
+    <span class="pill">Einsatzplanung</span>
+  </div>
+  <label>Auftrag
+    <select id="opsOrderSelect" onchange="loadOpsCenter()">
+      ${renderOpsOrderOptions()}
+    </select>
+  </label>
+  <div id="opsCenterWrap" style="margin-top:14px">
+    <p class="muted">Auftrag auswählen …</p>
+  </div>
+</div>
+`);
+
+pages.expenses=()=>shell('Belege & Ausgaben','Kassenbons, Tankbelege und sonstige Betriebsausgaben sicher archivieren.',`
+<div class="grid2">
+  <div class="card">
+    <h2>Neue Ausgabe / neuer Beleg</h2>
+    <div class="formgrid">
+      <label>Datum<input id="expenseDate" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+      <label>Kategorie
+        <select id="expenseCategory">
+          <option>Lebensmittel</option><option>Tanken</option><option>Material</option><option>Fahrzeug</option><option>Helfer</option><option>Sonstiges</option>
+        </select>
+      </label>
+      <label>Händler / Beschreibung<input id="expenseVendor" placeholder="z. B. Metro, Aral …"></label>
+      <label>Betrag €<input id="expenseAmount" type="number" min="0" step="0.01"></label>
+      <label>Auftrag zuordnen
+        <select id="expenseOrder">${renderOpsOrderOptions(true)}</select>
+      </label>
+      <label>Belegfoto / PDF<input id="expenseFile" type="file" accept="image/*,application/pdf"></label>
+    </div>
+    <label style="margin-top:12px">Notiz<textarea id="expenseNote"></textarea></label>
+    <button class="btn ok" style="margin-top:12px" onclick="saveExpense()">Ausgabe speichern</button>
+    <div id="expenseMsg" class="muted" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <div class="row"><h2>Belegarchiv</h2><button class="btn secondary" onclick="loadExpenses()">Aktualisieren</button></div>
+    <div id="expenseList"><p class="muted">Wird geladen …</p></div>
+  </div>
+</div>
+`);
+
+pages.requests=()=>shell('Buchungsanfragen','Öffentliche Anfragen prüfen, bearbeiten und in Aufträge übernehmen.',`
+<div class="card">
+  <div class="row">
+    <div>
+      <h2>Neue Buchungsanfragen</h2>
+      <p class="muted">Anfragen aus dem öffentlichen Formular landen hier zunächst getrennt von deinen echten Aufträgen.</p>
+    </div>
+    <button class="btn secondary" onclick="loadBookingRequests()">Aktualisieren</button>
+  </div>
+  <div id="requestList"><p class="muted">Wird geladen …</p></div>
 </div>
 `);
 
@@ -2042,6 +2409,16 @@ function toggleCustomerMode(){
   render('dashboard');
 }
 
+
+function upcomingWarnings(){
+  const now=new Date();
+  return ensureOrderAppIds().filter(o=>o.date).map(o=>{
+    const dt=new Date(`${o.date}T${o.time||'12:00'}`);
+    const days=(dt-now)/(1000*60*60*24);
+    return {...o,_days:days};
+  }).filter(o=>o._days>=0&&o._days<=3).sort((a,b)=>a._days-b._days);
+}
+
 function renderQuickStart(){
   const cards=[
     ['📋','Aufträge','Aufträge anlegen und bearbeiten','orders'],
@@ -2051,10 +2428,14 @@ function renderQuickStart(){
     ['🛒','Einkauf','Einkaufsliste aus Aufträgen','shopping'],
     ['📅','Kalender','Termine und Caterings','calendar'],
     ['📄','Dokumente','Angebote und Rechnungen','docs'],
+    ['✅','Einsatz-Zentrale','Checkliste, Helfer und Deckungsbeitrag','ops'],
+    ['🧾','Belege & Ausgaben','Kassenbons, Tanken und Kosten','expenses'],
+    ['📨','Buchungsanfragen','Neue Kundenanfragen prüfen','requests'],
     ['⚙️','Einstellungen','Firma und Datensicherung','settings']
   ];
 
-  return `<div class="row" style="margin-bottom:14px">
+  const warnings=upcomingWarnings();
+  return `${warnings.length?`<div class="security-warn" style="margin-bottom:14px">⏰ ${warnings.length} Auftrag/Aufträge in den nächsten 3 Tagen. Nächster: <b>${escapeHtml(warnings[0].customer||'Ohne Namen')}</b> am ${escapeHtml(warnings[0].date||'')}.</div>`:''}<div class="row" style="margin-bottom:14px">
     <div>
       <h2 style="margin-bottom:4px">Übersicht</h2>
       <div class="muted">Keine Finanzzahlen auf dieser Ansicht.</div>
@@ -2601,6 +2982,7 @@ function updateOrder(index){
   if(!orders[index]) return;
 
   const updated={
+    appId:orders[index].appId||(crypto.randomUUID?crypto.randomUUID():'ord-'+Date.now()),
     customer:document.querySelector('#editCustomer').value.trim(),
     status:document.querySelector('#editStatus').value,
     date:document.querySelector('#editDate').value,
@@ -2654,6 +3036,9 @@ function render(page){
   });
   document.getElementById('main').innerHTML=pages[page]();
   window.scrollTo(0,0);
+  if(page==='ops') setTimeout(()=>loadOpsCenter(),0);
+  if(page==='expenses') setTimeout(()=>loadExpenses(),0);
+  if(page==='requests') setTimeout(()=>loadBookingRequests(),0);
  }
 function go(p){render(p)}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
