@@ -219,8 +219,8 @@ const pages={};
 
 // ===== SUPABASE CLOUD KONFIGURATION =====
 // Ersetze NUR die beiden Werte zwischen den Anführungszeichen.
-const SUPABASE_URL='';
-const SUPABASE_PUBLISHABLE_KEY='';
+const SUPABASE_URL='https://lptohpitlidsvmtdbfks.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD';
 let sb=null;
 let currentUser=null;
 let cloudSyncBusy=false;
@@ -229,8 +229,8 @@ let pendingEnrollFactorId=null;
 let mfaEnrollStarted=false;
 
 function cloudConfigured(){
-  return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('https://lptohpitlidsvmtdbfks.supabase.co')
-    && !SUPABASE_PUBLISHABLE_KEY.includes('sb_publishable_ANGQjYNB7YrxUXY6gmXKaQ_GywhLSFD') && SUPABASE_PUBLISHABLE_KEY.length>20;
+  return SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co')
+    && !SUPABASE_PUBLISHABLE_KEY.includes('__SUPABASE_') && SUPABASE_PUBLISHABLE_KEY.length>20;
 }
 
 function authMessage(message){
