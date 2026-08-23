@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schneiders Catering – Version 3.0.1 Business Suite</title>
+<title>Schneiders Catering – Version 3.0.2 Business Suite</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--accent:#b34b2c;--accent2:#f2e4de;--line:#e5e7eb;--ok:#287a4b;--warn:#9a6a00}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
@@ -45,6 +45,13 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
   .card{box-shadow:none;border:0}
   #documentPreview .card{border:0}
 }
+
+@media(min-width:851px){
+  #appRoot.app{display:grid!important;grid-template-columns:240px minmax(0,1fr)!important;width:100%!important}
+  #appRoot aside{width:240px!important;min-width:240px!important}
+  #appRoot main{display:block!important;min-width:0!important;width:100%!important;max-width:1280px!important}
+}
+
 @media(max-width:850px){
   *{box-sizing:border-box}
   html,body{width:100%;max-width:100%;overflow-x:hidden}
@@ -179,7 +186,7 @@ body.customer-mode [data-page="calc"],body.customer-mode [data-page="stats"]{dis
 </div>
 <div class="app" id="appRoot">
 <aside>
-  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0.1 Business Suite</small></div>
+  <div class="brand">Schneiders Catering<small>Pizza-Catering · Version 3.0.2 Business Suite</small></div>
   <nav id="nav">
     <button data-page="dashboard" class="active">🏠 Startseite</button>
     <button data-page="orders">📋 Aufträge</button>
@@ -510,10 +517,16 @@ function showLogin(){
   authMessage('');
 }
 
+function applyAuthenticatedAppLayout(){
+  const root=document.getElementById('appRoot');
+  if(!root || !currentUser) return;
+  root.style.display=window.innerWidth<=850?'block':'grid';
+}
+
 async function enterAuthenticatedApp(user){
   currentUser=user;
   document.getElementById('authScreen').style.display='none';
-  document.getElementById('appRoot').style.display='block';
+  applyAuthenticatedAppLayout();
   const label=document.getElementById('cloudUser');
   if(label) label.textContent='🔒 '+(user.email||'Angemeldet')+' · MFA';
   await loadCloudData(false);
